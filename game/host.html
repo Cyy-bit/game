@@ -249,6 +249,16 @@
       box-shadow: 0 0 20px rgba(255, 202, 58, 0.22);
     }
 
+    .market-note {
+      margin-top: 12px;
+      border: 2px solid rgba(255, 202, 58, 0.38);
+      border-radius: 8px;
+      background: rgba(255, 202, 58, 0.1);
+      padding: 12px;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
     .record {
       border-radius: 8px;
       border: 2px solid rgba(46, 233, 255, 0.2);
@@ -261,6 +271,24 @@
     .muted { color: var(--muted); }
     .good { color: var(--good); }
     .bad { color: var(--danger); }
+    .timer-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      border: 3px solid rgba(255, 75, 216, 0.45);
+      background: rgba(255, 75, 216, 0.1);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 26px;
+    }
+
+    .timer-panel strong {
+      font-size: clamp(48px, 7vw, 86px);
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(255, 75, 216, 0.45);
+    }
+
     .message { min-height: 32px; color: #fff1a8; font-size: 18px; line-height: 1.45; margin-top: 10px; }
     .url-box { word-break: break-all; font-size: 18px; color: #d8fbff; }
 
@@ -303,6 +331,7 @@
             <button data-action="openEventDraw">開放玩家抽小事件</button>
             <button data-action="togglePoints" id="togglePointsBtn">查看本輪漲跌</button>
             <button data-action="openCardDraw">開放玩家抽卡</button>
+            <button data-action="startDiscussionTimer">開始 3 分鐘討論倒數</button>
             <button data-action="applyAdjustments">套用投資調整</button>
             <button data-action="settleRound">結算本輪</button>
             <button data-action="nextRound">下一輪</button>
@@ -338,6 +367,15 @@
         <section class="section">
           <h2 class="section-title">小事件區</h2>
           <div id="event" class="event-panel"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">討論倒數</h2>
+          <div class="timer-panel">
+            <span>3 分鐘</span>
+            <strong id="timerDisplay">03:00</strong>
+            <span class="muted" id="timerStatus">等待開始</span>
+          </div>
         </section>
 
         <section class="section">
@@ -430,6 +468,7 @@
       renderProducts();
       renderEvent();
       renderCards();
+      renderTimer();
       renderAdjustments();
       renderLeaderboard();
       renderPlayerCards();
@@ -488,11 +527,22 @@
         return `<div class="point-box">${product.name}<br><strong class="${numClass(point)}">${signed(point)} 點</strong></div>`;
       }).join("");
       $("event").innerHTML = `
-        <h3>${data.currentEvent.title}</h3>
         <p>${data.currentEvent.news}</p>
         <p class="muted">抽事件玩家：${data.eventDrawnByName || "主持人"}</p>
-        ${data.pointsVisible ? `<div class="point-grid">${points}</div>` : ""}
+        ${data.pointsVisible ? `<div class="point-grid">${points}</div><div class="market-note"><strong>本輪市場解讀</strong><br>${escapeHtml(data.currentEvent.explanation || "")}</div>` : ""}
       `;
+    }
+
+    function formatTime(seconds) {
+      const safe = Math.max(0, seconds);
+      return String(Math.floor(safe / 60)).padStart(2, "0") + ":" + String(safe % 60).padStart(2, "0");
+    }
+
+    function renderTimer() {
+      if (!data || !$("timerDisplay")) return;
+      const remaining = data.discussionEndsAt ? Math.ceil((data.discussionEndsAt - Date.now()) / 1000) : 180;
+      $("timerDisplay").textContent = formatTime(remaining);
+      $("timerStatus").textContent = data.discussionEndsAt ? (remaining > 0 ? "討論中" : "時間到") : "等待開始";
     }
 
     function renderCards() {
@@ -565,6 +615,7 @@
       if (button) action(button.dataset.action);
     });
 
+    setInterval(renderTimer, 1000);
     new EventSource("/api/events").onmessage = load;
     load();
   </script>

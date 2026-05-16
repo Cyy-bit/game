@@ -220,6 +220,31 @@
       text-align: center;
     }
 
+    .timer-panel {
+      display: grid;
+      gap: 8px;
+      text-align: center;
+      border: 3px solid rgba(255, 75, 216, 0.45);
+      background: rgba(255, 75, 216, 0.1);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .timer-panel strong {
+      font-size: clamp(48px, 16vw, 76px);
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(255, 75, 216, 0.45);
+    }
+
+    .market-note {
+      margin-top: 10px;
+      border: 2px solid rgba(255, 202, 58, 0.38);
+      border-radius: 8px;
+      background: rgba(255, 202, 58, 0.1);
+      padding: 10px;
+      line-height: 1.5;
+    }
+
     .message { min-height: 28px; color: #fff1a8; line-height: 1.45; }
     .muted { color: var(--muted); }
     .good { color: var(--good); }
@@ -261,6 +286,15 @@
     </section>
 
     <section class="section">
+      <h2>討論倒數</h2>
+      <div class="timer-panel">
+        <span>3 分鐘</span>
+        <strong id="timerDisplay">03:00</strong>
+        <span class="muted" id="timerStatus">等待開始</span>
+      </div>
+    </section>
+
+    <section class="section">
       <h2>小事件</h2>
       <div id="eventArea" class="event-box"></div>
     </section>
@@ -271,8 +305,8 @@
       <div id="myCards"></div>
     </section>
 
-    <section class="section">
-      <h2>排行榜</h2>
+    <section class="section" id="leaderboardSection" style="display: none;">
+      <h2>最終排行榜</h2>
       <div id="leaderboard"></div>
     </section>
   </div>
@@ -314,6 +348,7 @@
       renderSelector();
       renderStats();
       renderBigEvent();
+      renderTimer();
       renderEvent();
       renderCards();
       renderLeaderboard();
@@ -348,6 +383,18 @@
         : `<p class="muted">等待主持人顯示大事件。</p>`;
     }
 
+    function formatTime(seconds) {
+      const safe = Math.max(0, seconds);
+      return String(Math.floor(safe / 60)).padStart(2, "0") + ":" + String(safe % 60).padStart(2, "0");
+    }
+
+    function renderTimer() {
+      if (!data || !$("timerDisplay")) return;
+      const remaining = data.discussionEndsAt ? Math.ceil((data.discussionEndsAt - Date.now()) / 1000) : 180;
+      $("timerDisplay").textContent = formatTime(remaining);
+      $("timerStatus").textContent = data.discussionEndsAt ? (remaining > 0 ? "討論中" : "時間到") : "等待開始";
+    }
+
     function renderEvent() {
       if (!data.currentEvent) {
         const canDraw = data.eventDrawOpen && data.round;
@@ -363,10 +410,9 @@
         return `<div class="point-box">${product.name}<br><strong class="${numClass(point)}">${signed(point)} 點</strong></div>`;
       }).join("") : "";
       $("eventArea").innerHTML = `
-        <h3>${escapeHtml(data.currentEvent.title)}</h3>
         <p>${escapeHtml(data.currentEvent.news)}</p>
         <p class="muted">抽事件玩家：${escapeHtml(data.eventDrawnByName || "尚未記錄")}</p>
-        ${points ? `<div class="points">${points}</div>` : ""}
+        ${points ? `<div class="points">${points}</div><div class="market-note"><strong>本輪市場解讀</strong><br>${escapeHtml(data.currentEvent.explanation || "")}</div>` : ""}
       `;
     }
 
@@ -415,6 +461,12 @@
     }
 
     function renderLeaderboard() {
+      const showLeaderboard = data.stage === "遊戲結束";
+      $("leaderboardSection").style.display = showLeaderboard ? "block" : "none";
+      if (!showLeaderboard) {
+        $("leaderboard").innerHTML = "";
+        return;
+      }
       const sorted = [...data.players].sort((a, b) => b.totalAssets - a.totalAssets);
       $("leaderboard").innerHTML = sorted.map((player, index) => `
         <div class="stat"><span>#${index + 1} ${escapeHtml(player.name)}</span><strong>${player.totalAssets} 點</strong></div>
@@ -435,6 +487,7 @@
       load();
     });
 
+    setInterval(renderTimer, 1000);
     new EventSource("/api/events").onmessage = load;
     load();
   </script>

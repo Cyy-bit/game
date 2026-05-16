@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>主持人｜資訊迷霧：誰能看穿市場？</title>
+  <style>
+    :root {
+      --bg-a: #050615;
+      --bg-b: #101142;
+      --bg-c: #2c0a49;
+      --panel: rgba(9, 13, 35, 0.9);
+      --text: #f8fbff;
+      --muted: #aeb8d8;
+      --cyan: #2ee9ff;
+      --pink: #ff4bd8;
+      --gold: #ffca3a;
+      --danger: #ff4c68;
+      --good: #46ff9d;
+      --line: rgba(91, 231, 255, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+      font-weight: 800;
+      background:
+        linear-gradient(90deg, rgba(46, 233, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 75, 216, 0.07) 1px, transparent 1px),
+        linear-gradient(135deg, var(--bg-a), var(--bg-b) 50%, var(--bg-c));
+      background-size: 44px 44px, 44px 44px, auto;
+      min-height: 100vh;
+    }
+
+    button, input { font: inherit; }
+
+    button {
+      min-height: 50px;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--text);
+      background: linear-gradient(135deg, #00b7ff, #a543ff 56%, #ff3bc8);
+      box-shadow: 0 0 18px rgba(46, 233, 255, 0.28), inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    input {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 8px;
+      border: 2px solid rgba(46, 233, 255, 0.35);
+      background: rgba(2, 6, 22, 0.75);
+      color: var(--text);
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .app {
+      width: min(1700px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 18px 0 40px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 16px;
+      border: 2px solid rgba(46, 233, 255, 0.38);
+      border-radius: 0 0 8px 8px;
+      background: rgba(5, 8, 24, 0.94);
+      box-shadow: 0 0 22px rgba(46, 233, 255, 0.28);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 56px);
+      line-height: 1.05;
+      text-shadow: 0 0 12px rgba(46, 233, 255, 0.55), 0 0 24px rgba(255, 75, 216, 0.28);
+    }
+
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .pill {
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      background: rgba(25, 32, 78, 0.85);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 19px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(390px, 0.72fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .col { display: grid; gap: 16px; }
+
+    .section {
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 18px;
+      box-shadow: 0 0 20px rgba(46, 233, 255, 0.2), 0 0 22px rgba(255, 75, 216, 0.14);
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: clamp(24px, 2.2vw, 34px);
+      text-shadow: 0 0 12px rgba(46, 233, 255, 0.45);
+    }
+
+    .controls, .name-grid, .product-grid, .player-grid, .card-grid, .point-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .name-box {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+    }
+
+    .big-event {
+      min-height: 260px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      border: 4px solid rgba(46, 233, 255, 0.7);
+      border-radius: 8px;
+      padding: 30px;
+      background: linear-gradient(rgba(3, 7, 24, 0.82), rgba(8, 11, 38, 0.9)), linear-gradient(145deg, #030612, #0c1748 65%, #18052c);
+      box-shadow: inset 0 0 42px rgba(46, 233, 255, 0.11);
+    }
+
+    .big-event h2 {
+      margin: 0 0 12px;
+      font-size: clamp(50px, 7vw, 108px);
+      line-height: 0.9;
+      text-shadow: 0 0 12px var(--cyan), 0 0 32px var(--pink);
+    }
+
+    .big-event p, .event-panel p { margin: 0; font-size: clamp(20px, 2vw, 30px); line-height: 1.55; }
+
+    .card {
+      position: relative;
+      border-radius: 8px;
+      border: 5px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(150deg, rgba(12, 23, 72, 0.96), rgba(41, 18, 93, 0.95));
+      padding: 15px;
+      min-height: 165px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+    }
+
+    .card h3 { margin: 0 0 10px; font-size: 25px; }
+
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 17px;
+    }
+
+    .product-card { background: linear-gradient(150deg, #4a18a7, #261066 66%, #13072c); }
+
+    .event-panel {
+      border-radius: 8px;
+      border: 3px solid rgba(46, 233, 255, 0.55);
+      background: linear-gradient(145deg, rgba(4, 10, 31, 0.95), rgba(12, 18, 55, 0.95));
+      padding: 18px;
+    }
+
+    .event-panel h3 { margin: 0 0 10px; font-size: 32px; }
+
+    .point-box {
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 12px;
+      text-align: center;
+      font-size: 19px;
+    }
+
+    .draw-card {
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+      color: #1b0e05;
+    }
+
+    .info { background: linear-gradient(145deg, #e3caff, #c6a2ff); }
+    .point { background: linear-gradient(145deg, #fff2a7, #ffca3a 58%, #ff9f1c); }
+    .product { color: #fff; background: linear-gradient(145deg, #5e2bd1, #39168a); }
+    .fate { background: linear-gradient(145deg, #ffd56c, #ffad31); }
+    .unclaimed { color: #fff; background: linear-gradient(145deg, #081f4e, #14082f); }
+
+    .adjust-grid { display: grid; gap: 12px; }
+    .adjust-player {
+      border: 2px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(21, 28, 67, 0.82);
+      padding: 12px;
+    }
+
+    .adjust-inputs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .leader-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 21px;
+    }
+
+    .leader-row:first-child {
+      color: #fff6bc;
+      border: 2px solid rgba(255, 202, 58, 0.78);
+      box-shadow: 0 0 20px rgba(255, 202, 58, 0.22);
+    }
+
+    .record {
+      border-radius: 8px;
+      border: 2px solid rgba(46, 233, 255, 0.2);
+      background: rgba(255, 255, 255, 0.07);
+      padding: 12px;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .muted { color: var(--muted); }
+    .good { color: var(--good); }
+    .bad { color: var(--danger); }
+    .message { min-height: 32px; color: #fff1a8; font-size: 18px; line-height: 1.45; margin-top: 10px; }
+    .url-box { word-break: break-all; font-size: 18px; color: #d8fbff; }
+
+    @media (max-width: 1150px) {
+      .topbar, .grid { grid-template-columns: 1fr; }
+      .status { justify-content: flex-start; }
+      .controls, .name-grid, .product-grid, .player-grid, .card-grid, .point-grid, .adjust-inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 680px) {
+      .controls, .name-grid, .product-grid, .player-grid, .card-grid, .point-grid, .adjust-inputs { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>資訊迷霧：誰能看穿市場？</h1>
+      <div class="status">
+        <div class="pill">主持人連線版</div>
+        <div class="pill">回合：<span id="round">尚未開始</span></div>
+        <div class="pill">階段：<span id="stage">準備中</span></div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <div class="col">
+        <section class="section">
+          <h2 class="section-title">主持人流程</h2>
+          <div class="name-grid" style="margin-bottom: 12px;">
+            <label class="name-box">主持人密碼
+              <input id="hostPin" type="password" placeholder="雲端版若有設定 HOST_PIN，請輸入">
+            </label>
+          </div>
+          <div class="controls">
+            <button data-action="reset">重置遊戲</button>
+            <button data-action="setNames">設定玩家名稱</button>
+            <button data-action="showBigEvent">顯示大事件</button>
+            <button data-action="startRound" id="startRoundBtn">開始第 1 輪</button>
+            <button data-action="openEventDraw">開放玩家抽小事件</button>
+            <button data-action="togglePoints" id="togglePointsBtn">查看本輪漲跌</button>
+            <button data-action="openCardDraw">開放玩家抽卡</button>
+            <button data-action="applyAdjustments">套用投資調整</button>
+            <button data-action="settleRound">結算本輪</button>
+            <button data-action="nextRound">下一輪</button>
+            <button data-action="endGame">結束遊戲</button>
+          </div>
+          <div id="message" class="message"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">玩家手機入口</h2>
+          <div class="url-box" id="playerUrl"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">設定玩家名稱</h2>
+          <div id="names" class="name-grid"></div>
+        </section>
+
+        <section class="section">
+          <div id="bigEvent" class="big-event"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">玩家資產區</h2>
+          <div id="players" class="player-grid"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">商品區</h2>
+          <div id="products" class="product-grid"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">小事件區</h2>
+          <div id="event" class="event-panel"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">抽卡狀態</h2>
+          <div id="cards" class="card-grid"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">投資調整區</h2>
+          <p class="muted">輸入正數代表買入，負數代表賣出。每 1 單位成本或賣出價格都是 5 點。</p>
+          <div id="adjustments" class="adjust-grid"></div>
+        </section>
+      </div>
+
+      <aside class="col">
+        <section class="section">
+          <h2 class="section-title">排行榜</h2>
+          <div id="leaderboard"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">玩家本輪卡片</h2>
+          <div id="playerCards"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">結算紀錄</h2>
+          <div id="records"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    let data = null;
+    const $ = (id) => document.getElementById(id);
+    const signed = (value) => value > 0 ? `+${value}` : `${value}`;
+    const numClass = (value) => value > 0 ? "good" : value < 0 ? "bad" : "muted";
+    const cardNames = { info: "資訊卡", product: "商品卡", fate: "命運卡", point: "點數卡" };
+
+    async function action(type, extra = {}) {
+      if (type === "setNames") extra.names = [...document.querySelectorAll("[data-name]")].map((input) => input.value);
+      if (type === "applyAdjustments") extra.adjustments = buildAdjustments();
+      extra.pin = $("hostPin").value;
+      localStorage.setItem("fogHostPin", extra.pin);
+      try {
+        const res = await fetch("/api/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, ...extra })
+        });
+        const body = await res.json();
+        if (!body.ok) throw new Error(body.error);
+        await load();
+      } catch (error) {
+        $("message").textContent = error.message || "操作失敗。";
+        $("message").style.color = "var(--danger)";
+      }
+    }
+
+    function buildAdjustments() {
+      return data.players.map((player) => ({
+        playerId: player.id,
+        changes: Object.fromEntries(data.products.map((product) => {
+          const input = document.querySelector(`[data-adjust="${player.id}-${product.key}"]`);
+          return [product.key, input ? input.value : 0];
+        }))
+      }));
+    }
+
+    async function load() {
+      const res = await fetch("/api/state?view=host");
+      data = await res.json();
+      render();
+    }
+
+    function render() {
+      if (!$("hostPin").value) $("hostPin").value = localStorage.getItem("fogHostPin") || "";
+      $("round").textContent = data.round ? `第 ${data.round} / ${data.maxRounds} 輪` : "尚未開始";
+      $("stage").textContent = data.stage;
+      $("message").textContent = data.message || "";
+      $("message").style.color = "#fff1a8";
+      $("playerUrl").textContent = `${location.origin}/player.html`;
+      $("startRoundBtn").textContent = `開始第 ${Math.min(data.round + 1, data.maxRounds)} 輪`;
+      $("togglePointsBtn").textContent = data.pointsVisible ? "隱藏本輪漲跌" : "查看本輪漲跌";
+
+      renderNames();
+      renderBigEvent();
+      renderPlayers();
+      renderProducts();
+      renderEvent();
+      renderCards();
+      renderAdjustments();
+      renderLeaderboard();
+      renderPlayerCards();
+      renderRecords();
+    }
+
+    function renderNames() {
+      $("names").innerHTML = data.players.map((player) => `
+        <label class="name-box">玩家 ${player.id}
+          <input data-name value="${escapeHtml(player.name)}">
+        </label>
+      `).join("");
+    }
+
+    function renderBigEvent() {
+      $("bigEvent").innerHTML = `
+        <div>
+          <h2>大事件</h2>
+          <p>${data.bigEventVisible ? escapeHtml(data.bigEventText).replace(/\n/g, "<br>") : "按下「顯示大事件」開始投影開場劇情。"}</p>
+        </div>
+      `;
+    }
+
+    function renderPlayers() {
+      $("players").innerHTML = data.players.map((player) => {
+        const holdings = data.products.map((product) => `<div class="stat"><span>${product.name}</span><strong>${player.holdings[product.key]} 單位</strong></div>`).join("");
+        return `
+          <article class="card">
+            <h3>${escapeHtml(player.name)}</h3>
+            <div class="stat"><span>現金</span><strong class="${player.cash < 0 ? "bad" : ""}">${player.cash} 點</strong></div>
+            ${holdings}
+            <div class="stat"><span>總資產</span><strong>${player.totalAssets} 點</strong></div>
+            <div class="stat"><span>本輪盈虧</span><strong class="${numClass(player.lastProfit)}">${signed(player.lastProfit)} 點</strong></div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderProducts() {
+      $("products").innerHTML = data.products.map((product) => `
+        <article class="card product-card">
+          <h3>${product.name}</h3>
+          <p class="muted">${product.desc}</p>
+          <strong>每單位 ${data.unitPrice} 點</strong>
+        </article>
+      `).join("");
+    }
+
+    function renderEvent() {
+      if (!data.currentEvent) {
+        $("event").innerHTML = `<h3>尚未抽出小事件</h3><p>${data.eventDrawOpen ? "玩家現在可以在手機頁搶抽小事件。" : "請按「開放玩家抽小事件」。"}</p>`;
+        return;
+      }
+      const points = data.products.map((product) => {
+        const point = data.currentEvent.points[product.key];
+        return `<div class="point-box">${product.name}<br><strong class="${numClass(point)}">${signed(point)} 點</strong></div>`;
+      }).join("");
+      $("event").innerHTML = `
+        <h3>${data.currentEvent.title}</h3>
+        <p>${data.currentEvent.news}</p>
+        <p class="muted">抽事件玩家：${data.eventDrawnByName || "主持人"}</p>
+        ${data.pointsVisible ? `<div class="point-grid">${points}</div>` : ""}
+      `;
+    }
+
+    function renderCards() {
+      if (!data.cardDeck.length) {
+        $("cards").innerHTML = `<div class="muted">尚未開放抽卡。</div>`;
+        return;
+      }
+      $("cards").innerHTML = data.cardDeck.map((card) => {
+        const content = card.content;
+        return `
+          <article class="card draw-card ${content ? content.type : "unclaimed"}">
+            <strong>${content ? escapeHtml(content.title) : "未抽卡牌"}</strong>
+            <span>${card.claimedBy ? `已被 ${escapeHtml(card.claimedByName)} 抽走` : "等待玩家點選"}</span>
+            <span>${content ? escapeHtml(content.text) : "卡背"}</span>
+            <small>${content ? escapeHtml(content.note) : cardNames[card.type]}</small>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderAdjustments() {
+      $("adjustments").innerHTML = data.players.map((player) => `
+        <div class="adjust-player">
+          <h3>${escapeHtml(player.name)}</h3>
+          <div class="adjust-inputs">
+            ${data.products.map((product) => `
+              <label>${product.name}
+                <input type="number" value="0" step="1" data-adjust="${player.id}-${product.key}">
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderLeaderboard() {
+      const sorted = [...data.players].sort((a, b) => b.totalAssets - a.totalAssets);
+      $("leaderboard").innerHTML = sorted.map((player, index) => `
+        <div class="leader-row"><strong>#${index + 1}</strong><span>${escapeHtml(player.name)}</span><strong>${player.totalAssets} 點</strong></div>
+      `).join("");
+    }
+
+    function renderPlayerCards() {
+      $("playerCards").innerHTML = data.playerCards.map((entry) => `
+        <div class="record">
+          <strong>${escapeHtml(entry.playerName)}</strong><br>
+          ${entry.cards.length ? entry.cards.map((card) => `${escapeHtml(card.title)}：${escapeHtml(card.text)}`).join("<br>") : "尚未抽卡"}
+        </div>
+      `).join("");
+    }
+
+    function renderRecords() {
+      if (!data.records.length) {
+        $("records").innerHTML = `<div class="muted">尚無結算紀錄。</div>`;
+        return;
+      }
+      $("records").innerHTML = data.records.map((record) => {
+        const points = data.products.map((product) => `${product.name} ${signed(record.event.points[product.key])}`).join("、");
+        const results = record.playerResults.map((result) => `${escapeHtml(result.playerName)}：<span class="${numClass(result.profit)}">${signed(result.profit)}</span>，總資產 ${result.assetsAfter}`).join("<br>");
+        return `<div class="record"><strong>第 ${record.round} 輪：${record.event.title}</strong><br>商品點數：${points}<br>${results}</div>`;
+      }).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action]");
+      if (button) action(button.dataset.action);
+    });
+
+    new EventSource("/api/events").onmessage = load;
+    load();
+  </script>
+</body>
+</html>

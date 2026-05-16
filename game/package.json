@@ -1,0 +1,14 @@
+{
+  "name": "market-fog-investment-game",
+  "version": "1.0.0",
+  "private": true,
+  "description": "資訊迷霧：誰能看穿市場？雲端連線版主持人與玩家工具",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

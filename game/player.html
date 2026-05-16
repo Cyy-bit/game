@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>玩家｜資訊迷霧：誰能看穿市場？</title>
+  <style>
+    :root {
+      --bg-a: #050615;
+      --bg-b: #101142;
+      --bg-c: #2c0a49;
+      --panel: rgba(9, 13, 35, 0.92);
+      --text: #f8fbff;
+      --muted: #aeb8d8;
+      --cyan: #2ee9ff;
+      --pink: #ff4bd8;
+      --gold: #ffca3a;
+      --danger: #ff4c68;
+      --good: #46ff9d;
+      --line: rgba(91, 231, 255, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+      font-weight: 800;
+      background:
+        linear-gradient(90deg, rgba(46, 233, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 75, 216, 0.07) 1px, transparent 1px),
+        linear-gradient(135deg, var(--bg-a), var(--bg-b) 50%, var(--bg-c));
+      background-size: 38px 38px, 38px 38px, auto;
+      min-height: 100vh;
+    }
+
+    button, select { font: inherit; }
+
+    button, select {
+      width: 100%;
+      min-height: 54px;
+      border-radius: 8px;
+      border: 2px solid rgba(46, 233, 255, 0.38);
+      color: var(--text);
+      background: rgba(4, 10, 31, 0.9);
+      padding: 10px 12px;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      background: linear-gradient(135deg, #00b7ff, #a543ff 56%, #ff3bc8);
+      box-shadow: 0 0 18px rgba(46, 233, 255, 0.28), inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      filter: grayscale(0.6);
+      cursor: not-allowed;
+    }
+
+    .app {
+      width: min(720px, calc(100% - 20px));
+      margin: 0 auto;
+      padding: 14px 0 32px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .top {
+      border: 2px solid rgba(46, 233, 255, 0.38);
+      border-radius: 8px;
+      background: rgba(5, 8, 24, 0.94);
+      padding: 14px;
+      box-shadow: 0 0 22px rgba(46, 233, 255, 0.24);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 8vw, 44px);
+      line-height: 1.05;
+      text-shadow: 0 0 12px rgba(46, 233, 255, 0.55), 0 0 24px rgba(255, 75, 216, 0.28);
+    }
+
+    .status {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .pill {
+      border: 2px solid rgba(255, 255, 255, 0.14);
+      background: rgba(25, 32, 78, 0.85);
+      border-radius: 999px;
+      padding: 8px 10px;
+    }
+
+    .section {
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px;
+      box-shadow: 0 0 20px rgba(46, 233, 255, 0.18), 0 0 22px rgba(255, 75, 216, 0.13);
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 25px;
+      text-shadow: 0 0 12px rgba(46, 233, 255, 0.45);
+    }
+
+    h3 { margin: 0 0 8px; font-size: 22px; }
+    p { margin: 0; line-height: 1.55; }
+
+    .selector {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .stats {
+      display: grid;
+      gap: 8px;
+    }
+
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 7px;
+      font-size: 18px;
+    }
+
+    .event-box {
+      border-radius: 8px;
+      border: 3px solid rgba(46, 233, 255, 0.5);
+      background: linear-gradient(145deg, rgba(4, 10, 31, 0.95), rgba(12, 18, 55, 0.95));
+      padding: 14px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .draw-card {
+      min-height: 150px;
+      border-radius: 8px;
+      border: 4px solid rgba(255, 255, 255, 0.16);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+      color: #fff;
+      background: linear-gradient(145deg, #081f4e, #14082f);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+    }
+
+    .draw-card.mine {
+      color: #1b0e05;
+      background: linear-gradient(145deg, #fff2a7, #ffca3a 58%, #ff9f1c);
+      border-color: #fff6c7;
+    }
+
+    .draw-card.claimed {
+      opacity: 0.55;
+      filter: grayscale(0.45);
+    }
+
+    .card-button {
+      all: unset;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 126px;
+      cursor: pointer;
+    }
+
+    .my-card {
+      border-radius: 8px;
+      border: 4px solid rgba(255, 255, 255, 0.18);
+      color: #1b0e05;
+      background: linear-gradient(145deg, #e3caff, #c6a2ff);
+      padding: 14px;
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+
+    .info { background: linear-gradient(145deg, #e3caff, #c6a2ff); }
+    .point { background: linear-gradient(145deg, #fff2a7, #ffca3a 58%, #ff9f1c); }
+    .product { color: #fff; background: linear-gradient(145deg, #5e2bd1, #39168a); }
+    .fate { background: linear-gradient(145deg, #ffd56c, #ffad31); }
+
+    .points {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .point-box {
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 10px;
+      text-align: center;
+    }
+
+    .message { min-height: 28px; color: #fff1a8; line-height: 1.45; }
+    .muted { color: var(--muted); }
+    .good { color: var(--good); }
+    .bad { color: var(--danger); }
+
+    @media (max-width: 520px) {
+      .selector, .card-grid, .points { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <h1>資訊迷霧</h1>
+      <div class="status">
+        <span class="pill">玩家頁</span>
+        <span class="pill">回合：<span id="round">尚未開始</span></span>
+        <span class="pill">階段：<span id="stage">準備中</span></span>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2>選擇玩家</h2>
+      <div class="selector">
+        <select id="playerSelect"></select>
+        <button id="savePlayer">使用此身份</button>
+      </div>
+      <div id="message" class="message"></div>
+    </section>
+
+    <section class="section">
+      <h2>我的資產</h2>
+      <div id="myStats" class="stats"></div>
+    </section>
+
+    <section class="section">
+      <h2>小事件</h2>
+      <div id="eventArea" class="event-box"></div>
+    </section>
+
+    <section class="section">
+      <h2>抽卡區</h2>
+      <div id="cardsArea" class="card-grid"></div>
+      <div id="myCards"></div>
+    </section>
+
+    <section class="section">
+      <h2>排行榜</h2>
+      <div id="leaderboard"></div>
+    </section>
+  </div>
+
+  <script>
+    let playerId = Number(localStorage.getItem("fogPlayerId") || 1);
+    let data = null;
+    const $ = (id) => document.getElementById(id);
+    const signed = (value) => value > 0 ? `+${value}` : `${value}`;
+    const numClass = (value) => value > 0 ? "good" : value < 0 ? "bad" : "muted";
+
+    async function action(type, extra = {}) {
+      try {
+        const res = await fetch("/api/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, playerId, ...extra })
+        });
+        const body = await res.json();
+        if (!body.ok) throw new Error(body.error);
+        await load();
+      } catch (error) {
+        $("message").textContent = error.message || "操作失敗。";
+        $("message").style.color = "var(--danger)";
+      }
+    }
+
+    async function load() {
+      const res = await fetch(`/api/state?playerId=${playerId}`);
+      data = await res.json();
+      render();
+    }
+
+    function render() {
+      $("round").textContent = data.round ? `第 ${data.round} / ${data.maxRounds} 輪` : "尚未開始";
+      $("stage").textContent = data.stage;
+      $("message").textContent = data.message || "";
+      $("message").style.color = "#fff1a8";
+      renderSelector();
+      renderStats();
+      renderEvent();
+      renderCards();
+      renderLeaderboard();
+    }
+
+    function renderSelector() {
+      $("playerSelect").innerHTML = data.players.map((player) => `
+        <option value="${player.id}" ${player.id === playerId ? "selected" : ""}>${escapeHtml(player.name)}</option>
+      `).join("");
+    }
+
+    function renderStats() {
+      if (!data.me) {
+        $("myStats").innerHTML = `<p class="bad">請先選擇玩家身份。</p>`;
+        return;
+      }
+      const holdings = data.products.map((product) => `
+        <div class="stat"><span>${product.name}</span><strong>${data.me.holdings[product.key]} 單位</strong></div>
+      `).join("");
+      $("myStats").innerHTML = `
+        <div class="stat"><span>玩家</span><strong>${escapeHtml(data.me.name)}</strong></div>
+        <div class="stat"><span>現金</span><strong class="${data.me.cash < 0 ? "bad" : ""}">${data.me.cash} 點</strong></div>
+        ${holdings}
+        <div class="stat"><span>總資產</span><strong>${data.me.totalAssets} 點</strong></div>
+        <div class="stat"><span>本輪盈虧</span><strong class="${numClass(data.me.lastProfit)}">${signed(data.me.lastProfit)} 點</strong></div>
+      `;
+    }
+
+    function renderEvent() {
+      if (!data.currentEvent) {
+        const canDraw = data.eventDrawOpen && data.round;
+        $("eventArea").innerHTML = `
+          <h3>尚未抽出小事件</h3>
+          <p class="muted">${canDraw ? "主持人已開放抽小事件。先點先抽出本輪新聞。" : "等待主持人開放抽小事件。"}</p>
+          <button ${canDraw ? "" : "disabled"} onclick="action('drawEventByPlayer')">我來抽本輪小事件</button>
+        `;
+        return;
+      }
+      const points = data.currentEvent.points ? data.products.map((product) => {
+        const point = data.currentEvent.points[product.key];
+        return `<div class="point-box">${product.name}<br><strong class="${numClass(point)}">${signed(point)} 點</strong></div>`;
+      }).join("") : "";
+      $("eventArea").innerHTML = `
+        <h3>${escapeHtml(data.currentEvent.title)}</h3>
+        <p>${escapeHtml(data.currentEvent.news)}</p>
+        <p class="muted">抽事件玩家：${escapeHtml(data.eventDrawnByName || "尚未記錄")}</p>
+        ${points ? `<div class="points">${points}</div>` : ""}
+      `;
+    }
+
+    function renderCards() {
+      if (!data.cardDeck.length) {
+        $("cardsArea").innerHTML = `<p class="muted">等待主持人開放抽卡。</p>`;
+      } else {
+        $("cardsArea").innerHTML = data.cardDeck.map((card, index) => {
+          if (card.mine && card.content) {
+            return `
+              <article class="draw-card mine">
+                <strong>你抽到這張</strong>
+                <span>${escapeHtml(card.content.title)}</span>
+                <span>${escapeHtml(card.content.text)}</span>
+              </article>
+            `;
+          }
+          if (!card.available) {
+            return `
+              <article class="draw-card claimed">
+                <strong>已抽走</strong>
+                <span>${escapeHtml(card.claimedByName)} 已選擇這張</span>
+              </article>
+            `;
+          }
+          const disabled = data.hasClaimedCard || !data.cardDrawOpen ? "disabled" : "";
+          return `
+            <article class="draw-card">
+              <button class="card-button" ${disabled} onclick="claimCard('${card.id}')">
+                <strong>卡牌 ${index + 1}</strong>
+                <span>點擊抽取</span>
+                <span class="muted">先點先得</span>
+              </button>
+            </article>
+          `;
+        }).join("");
+      }
+
+      $("myCards").innerHTML = data.me && data.me.cards.length ? data.me.cards.map((card) => `
+        <div class="my-card ${card.type}">
+          <strong>${escapeHtml(card.title)}</strong><br>
+          ${escapeHtml(card.text)}<br>
+          <span>${escapeHtml(card.note)}</span>
+        </div>
+      `).join("") : "";
+    }
+
+    function renderLeaderboard() {
+      const sorted = [...data.players].sort((a, b) => b.totalAssets - a.totalAssets);
+      $("leaderboard").innerHTML = sorted.map((player, index) => `
+        <div class="stat"><span>#${index + 1} ${escapeHtml(player.name)}</span><strong>${player.totalAssets} 點</strong></div>
+      `).join("");
+    }
+
+    function claimCard(cardId) {
+      action("claimCard", { cardId });
+    }
+
+    function escapeHtml(value) {
+      return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    $("savePlayer").addEventListener("click", () => {
+      playerId = Number($("playerSelect").value);
+      localStorage.setItem("fogPlayerId", String(playerId));
+      load();
+    });
+
+    new EventSource("/api/events").onmessage = load;
+    load();
+  </script>
+</body>
+</html>

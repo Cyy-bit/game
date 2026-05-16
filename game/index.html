@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>資訊迷霧：誰能看穿市場？</title>
+  <style>
+    :root {
+      --bg-a: #050615;
+      --bg-b: #101142;
+      --bg-c: #2c0a49;
+      --panel: rgba(9, 13, 35, 0.86);
+      --panel-soft: rgba(21, 28, 67, 0.82);
+      --text: #f8fbff;
+      --muted: #aeb8d8;
+      --cyan: #2ee9ff;
+      --pink: #ff4bd8;
+      --gold: #ffca3a;
+      --orange-card: #ffad31;
+      --purple-card: #c6a2ff;
+      --deep-card: #39168a;
+      --danger: #ff4c68;
+      --good: #46ff9d;
+      --line: rgba(91, 231, 255, 0.35);
+      --shadow-cyan: 0 0 20px rgba(46, 233, 255, 0.28);
+      --shadow-pink: 0 0 22px rgba(255, 75, 216, 0.22);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+      font-weight: 800;
+      background:
+        linear-gradient(90deg, rgba(46, 233, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 75, 216, 0.07) 1px, transparent 1px),
+        linear-gradient(135deg, var(--bg-a), var(--bg-b) 50%, var(--bg-c));
+      background-size: 44px 44px, 44px 44px, auto;
+      min-height: 100vh;
+      letter-spacing: 0;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 13px 16px;
+      background: linear-gradient(135deg, #00b7ff, #a543ff 55%, #ff3bc8);
+      box-shadow: var(--shadow-cyan), inset 0 0 0 2px rgba(255, 255, 255, 0.18);
+      transition: transform 0.12s ease, filter 0.12s ease;
+      min-height: 52px;
+    }
+
+    button:hover { transform: translateY(-1px); filter: brightness(1.12); }
+    button:disabled { cursor: not-allowed; opacity: 0.45; filter: grayscale(0.5); transform: none; }
+
+    input {
+      width: 100%;
+      min-height: 48px;
+      border-radius: 8px;
+      border: 2px solid rgba(46, 233, 255, 0.35);
+      background: rgba(2, 6, 22, 0.7);
+      color: var(--text);
+      padding: 8px 10px;
+      text-align: center;
+      font-size: 18px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(46, 233, 255, 0.15);
+    }
+
+    .app {
+      width: min(1680px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 18px 0 44px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 2px solid rgba(46, 233, 255, 0.38);
+      background: rgba(5, 8, 24, 0.92);
+      box-shadow: var(--shadow-cyan);
+      backdrop-filter: blur(14px);
+      border-radius: 0 0 8px 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 58px);
+      line-height: 1.05;
+      text-shadow: 0 0 12px rgba(46, 233, 255, 0.55), 0 0 24px rgba(255, 75, 216, 0.28);
+    }
+
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      min-width: min(560px, 100%);
+    }
+
+    .status-pill {
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      background: rgba(25, 32, 78, 0.85);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 20px;
+      box-shadow: inset 0 0 15px rgba(46, 233, 255, 0.08);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(390px, 0.72fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .main-column,
+    .side-column {
+      display: grid;
+      gap: 16px;
+    }
+
+    .section {
+      border: 2px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow-cyan), var(--shadow-pink);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      margin: 0 0 14px;
+      font-size: clamp(24px, 2.2vw, 36px);
+      color: #ffffff;
+      text-shadow: 0 0 12px rgba(46, 233, 255, 0.45);
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    .event-hero {
+      min-height: 290px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      border: 4px solid rgba(46, 233, 255, 0.7);
+      border-radius: 8px;
+      padding: 34px;
+      background:
+        linear-gradient(rgba(3, 7, 24, 0.78), rgba(8, 11, 38, 0.86)),
+        linear-gradient(90deg, rgba(46, 233, 255, 0.12), rgba(255, 75, 216, 0.12)),
+        linear-gradient(145deg, #030612, #0c1748 65%, #18052c);
+      box-shadow: 0 0 34px rgba(46, 233, 255, 0.35), inset 0 0 40px rgba(46, 233, 255, 0.11);
+    }
+
+    .event-hero h2 {
+      margin: 0 0 14px;
+      font-size: clamp(54px, 8vw, 118px);
+      line-height: 0.9;
+      color: #ffffff;
+      text-shadow: 0 0 10px var(--cyan), 0 0 34px var(--pink);
+    }
+
+    .event-hero p {
+      max-width: 1100px;
+      margin: 0;
+      font-size: clamp(21px, 2.2vw, 34px);
+      line-height: 1.55;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .name-grid,
+    .product-grid,
+    .player-grid,
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .name-box {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .board-card {
+      position: relative;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 170px;
+      border: 5px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34), inset 0 0 0 2px rgba(255, 255, 255, 0.11);
+      overflow: hidden;
+    }
+
+    .board-card::after {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      border: 2px dashed rgba(255, 255, 255, 0.22);
+      border-radius: 6px;
+      pointer-events: none;
+    }
+
+    .product-card {
+      background: linear-gradient(150deg, #4a18a7, #261066 66%, #13072c);
+      border-color: rgba(198, 162, 255, 0.58);
+      min-height: 210px;
+    }
+
+    .player-card {
+      background: linear-gradient(150deg, rgba(12, 23, 72, 0.96), rgba(41, 18, 93, 0.95));
+      border-color: rgba(46, 233, 255, 0.45);
+    }
+
+    .board-card h3 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 10px;
+      font-size: 26px;
+      line-height: 1.16;
+    }
+
+    .board-card p,
+    .board-card .meta {
+      position: relative;
+      z-index: 1;
+    }
+
+    .product-desc {
+      min-height: 76px;
+      color: #dbcfff;
+      line-height: 1.45;
+      font-size: 17px;
+      margin: 0 0 14px;
+    }
+
+    .price-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 202, 58, 0.16);
+      border: 2px solid rgba(255, 202, 58, 0.55);
+      color: #fff1a8;
+      font-size: 18px;
+    }
+
+    .stat-list {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 6px;
+      font-size: 18px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 5px;
+    }
+
+    .cash-negative { color: var(--danger); text-shadow: 0 0 10px rgba(255, 76, 104, 0.5); }
+    .gain { color: var(--good); }
+    .loss { color: var(--danger); }
+    .flat { color: var(--muted); }
+
+    .event-panel {
+      border-radius: 8px;
+      border: 3px solid rgba(46, 233, 255, 0.55);
+      background: linear-gradient(145deg, rgba(4, 10, 31, 0.95), rgba(12, 18, 55, 0.95));
+      padding: 18px;
+      box-shadow: inset 0 0 34px rgba(46, 233, 255, 0.1);
+    }
+
+    .event-panel h3 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      color: #ffffff;
+    }
+
+    .event-panel p {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.62;
+    }
+
+    .hidden-points {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .point-box {
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 12px;
+      text-align: center;
+      font-size: 20px;
+    }
+
+    .draw-card {
+      color: #1b0e05;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .draw-card.info {
+      background: linear-gradient(145deg, #e3caff, var(--purple-card));
+      border-color: #efe2ff;
+    }
+
+    .draw-card.point {
+      background: linear-gradient(145deg, #fff2a7, #ffca3a 58%, #ff9f1c);
+      border-color: #fff6c7;
+    }
+
+    .draw-card.product {
+      color: #fff;
+      background: linear-gradient(145deg, #5e2bd1, var(--deep-card));
+      border-color: #b99cff;
+    }
+
+    .draw-card.fate {
+      background: linear-gradient(145deg, #ffd56c, var(--orange-card));
+      border-color: #ffe9b0;
+    }
+
+    .card-owner {
+      position: relative;
+      z-index: 1;
+      font-size: 20px;
+      opacity: 0.82;
+    }
+
+    .card-type {
+      position: relative;
+      z-index: 1;
+      font-size: 30px;
+      line-height: 1.1;
+    }
+
+    .card-text {
+      position: relative;
+      z-index: 1;
+      font-size: 20px;
+      line-height: 1.35;
+    }
+
+    .private-note {
+      position: relative;
+      z-index: 1;
+      display: inline-block;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 15px;
+      background: rgba(0, 0, 0, 0.18);
+      color: inherit;
+    }
+
+    .timer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      border: 3px solid rgba(255, 75, 216, 0.45);
+      background: rgba(255, 75, 216, 0.1);
+      padding: 14px 18px;
+      border-radius: 8px;
+      font-size: 28px;
+    }
+
+    .timer strong {
+      font-size: clamp(48px, 7vw, 92px);
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(255, 75, 216, 0.45);
+    }
+
+    .adjust-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .adjust-player {
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.14);
+      background: var(--panel-soft);
+      padding: 14px;
+    }
+
+    .adjust-player h3 {
+      margin: 0 0 10px;
+      font-size: 24px;
+    }
+
+    .adjust-inputs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field label {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-size: 15px;
+    }
+
+    .message-box {
+      margin-top: 12px;
+      min-height: 34px;
+      color: #fff1a8;
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    .leader-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 13px 14px;
+      margin-bottom: 9px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      font-size: 22px;
+    }
+
+    .leader-row.first {
+      color: #fff6bc;
+      border-color: rgba(255, 202, 58, 0.8);
+      box-shadow: 0 0 22px rgba(255, 202, 58, 0.25);
+      background: rgba(255, 202, 58, 0.13);
+    }
+
+    .record-list {
+      display: grid;
+      gap: 12px;
+      max-height: 620px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .record-item {
+      border-radius: 8px;
+      border: 2px solid rgba(46, 233, 255, 0.2);
+      background: rgba(255, 255, 255, 0.07);
+      padding: 14px;
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    .record-item h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+
+    .final-panel {
+      border-color: rgba(255, 202, 58, 0.65);
+      box-shadow: 0 0 30px rgba(255, 202, 58, 0.22), var(--shadow-pink);
+    }
+
+    .final-panel p {
+      font-size: 21px;
+      line-height: 1.65;
+    }
+
+    .history-block {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding-top: 10px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.5;
+    }
+
+    .compact-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .ghost-button {
+      background: rgba(255, 255, 255, 0.09);
+      border: 2px solid rgba(46, 233, 255, 0.38);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    .danger-button {
+      background: linear-gradient(135deg, #ff375f, #7a1cff);
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1.5;
+      padding: 12px 0;
+    }
+
+    @media (max-width: 1200px) {
+      .grid,
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .status { justify-content: flex-start; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .name-grid,
+      .product-grid,
+      .player-grid,
+      .card-grid,
+      .hidden-points,
+      .adjust-inputs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app { width: min(100% - 18px, 1680px); }
+      .section { padding: 14px; }
+      .controls,
+      .name-grid,
+      .product-grid,
+      .player-grid,
+      .card-grid,
+      .hidden-points,
+      .adjust-inputs,
+      .compact-actions {
+        grid-template-columns: 1fr;
+      }
+      .timer { display: grid; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>資訊迷霧：誰能看穿市場？</h1>
+      <div class="status">
+        <div class="status-pill">目前回合：<span id="roundLabel">尚未開始</span></div>
+        <div class="status-pill">目前階段：<span id="stageLabel">準備中</span></div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <div class="main-column">
+        <section class="section">
+          <h2 class="section-title">主持人流程按鈕</h2>
+          <div class="controls">
+            <button id="initBtn">初始化遊戲</button>
+            <button id="setNamesBtn">設定玩家名稱</button>
+            <button id="showBigEventBtn">顯示大事件</button>
+            <button id="startRoundBtn">開始第 1 輪</button>
+            <button id="drawEventBtn">抽小事件</button>
+            <button id="togglePointsBtn">查看本輪漲跌</button>
+            <button id="drawCardsBtn">抽卡</button>
+            <button id="timerBtn">開始 3 分鐘討論倒數</button>
+            <button id="applyAdjustmentsBtn">套用投資調整</button>
+            <button id="settleBtn">結算本輪</button>
+            <button id="nextRoundBtn">下一輪</button>
+            <button id="endGameBtn">結束遊戲</button>
+            <button id="resetBtn" class="danger-button">重置遊戲</button>
+          </div>
+          <div id="systemMessage" class="message-box"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">設定玩家名稱</h2>
+          <div id="nameInputs" class="name-grid"></div>
+        </section>
+
+        <section class="section">
+          <div id="bigEvent" class="event-hero">
+            <div>
+              <h2>大事件</h2>
+              <p>按下「顯示大事件」開始投影開場劇情。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">玩家資產區</h2>
+          <div id="playersArea" class="player-grid"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">商品區</h2>
+          <div id="productsArea" class="product-grid"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">小事件區</h2>
+          <div id="smallEventArea" class="event-panel">
+            <h3>尚未抽出小事件</h3>
+            <p>每輪開始後，請按「抽小事件」。玩家只看新聞版本；隱藏漲跌由主持人控制顯示。</p>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">抽卡區</h2>
+          <div id="cardsArea" class="card-grid"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">討論階段</h2>
+          <div class="timer">
+            <span>3 分鐘倒數</span>
+            <strong id="timerDisplay">03:00</strong>
+            <span class="subtle">可討論、合作、說服、隱藏資訊與發布謠言</span>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">投資調整區</h2>
+          <p class="subtle">輸入正數代表買入，負數代表賣出。每 1 單位成本或賣出價格都是 5 點。</p>
+          <div id="adjustmentsArea" class="adjust-grid"></div>
+        </section>
+      </div>
+
+      <aside class="side-column">
+        <section class="section">
+          <h2 class="section-title">排行榜</h2>
+          <div id="leaderboardArea"></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">結算紀錄區</h2>
+          <div id="recordsArea" class="record-list"></div>
+        </section>
+
+        <section id="finalArea" class="section final-panel" style="display: none;">
+          <h2 class="section-title">遊戲結束</h2>
+          <div id="finalContent"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // =============================
+    // 可修改資料區：商品、事件、卡牌
+    // =============================
+
+    const UNIT_PRICE = 5;
+    const INITIAL_CASH = 50;
+    const MAX_ROUNDS = 5;
+
+    const bigEventText = `全球市場進入新一波科技投資熱潮。大型企業積極投入 AI、自動化、資料中心與能源轉型相關支出，投資人開始追逐高成長題材。
+但同時，能源價格、通膨壓力與政策變化也讓市場變得不穩定。有人認為這是新一波成長機會，也有人擔心市場過熱、估值太高，隨時可能反轉。`;
+
+    const products = [
+      { key: "chip", name: "晶片巨人", desc: "代表半導體、AI、科技創新" },
+      { key: "green", name: "綠能交通", desc: "代表電動車、綠能轉型" },
+      { key: "oil", name: "黑金能源", desc: "代表石油、原物料、能源" },
+      { key: "defense", name: "民生防禦", desc: "代表電信服務、民生用品、防禦型產業" }
+    ];
+
+    // 小事件資料：若要增修事件，保持 points 使用商品 key 即可。
+    const roundEvents = {
+      1: [
+        { id: "1-1", title: "企業擴大 AI 與自動化投資", news: "多家大型企業宣布提高資料中心、自動化設備與資料處理系統的資本支出。市場認為，這可能帶動部分高科技供應鏈需求，也可能讓生產效率在未來提升。不過，也有分析師提醒，短期內企業支出大增，可能會壓縮部分公司的現金流，投資人對真正受惠的產業仍有不同看法。", points: { chip: 3, green: 2, oil: 0, defense: 0 } },
+        { id: "1-2", title: "新一代交通技術受到市場關注", news: "市場傳出新一代交通工具技術取得突破，部分投資人認為未來交通產業可能出現替代性需求。相關供應鏈受到資金關注，但也有人擔心新技術仍需要大量投入，短期內不一定能馬上帶來獲利。", points: { chip: 1, green: 3, oil: 0, defense: 0 } },
+        { id: "1-3", title: "製造業接單回溫", news: "製造業接單出現回溫跡象，部分企業開始重新評估擴產與採購計畫。市場一方面看好上游材料需求增加，另一方面也擔心供應鏈若太快擴張，可能造成成本與供貨壓力。", points: { chip: 2, green: 0, oil: 2, defense: 0 } },
+        { id: "1-4", title: "資金轉向穩定型產業", news: "近期市場波動加大，高成長產業的估值開始受到討論。部分投資人選擇先獲利了結，將資金轉向需求較穩定、受景氣影響較小的產業。市場對這是否只是短期修正仍沒有共識。", points: { chip: -2, green: -2, oil: 0, defense: 2 } }
+      ],
+      2: [
+        { id: "2-1", title: "國際運輸與能源成本上升", news: "國際運輸與能源成本同步上升，企業開始評估是否調整售價。市場擔心成本壓力可能影響部分成長型產業，但也有投資人認為，上游能源與原物料相關產業可能因此受惠。", points: { chip: 0, green: -2, oil: 3, defense: 1 } },
+        { id: "2-2", title: "家庭支出轉向保守", news: "家庭支出開始轉向保守，消費者減少非必要支出，優先維持日常生活、通訊與必要服務。市場開始重新評估高成長產業的短期需求，也有人認為穩定型產業在這種環境下更有支撐。", points: { chip: -3, green: 0, oil: -2, defense: 2 } },
+        { id: "2-3", title: "節能補助方向浮現", news: "政府釋出節能與效率升級相關補助方向，市場開始討論哪些產業可能受惠。部分投資人看好替代能源與新型交通工具需求，但政策細節尚未完全明朗，資金仍在觀望。", points: { chip: 1, green: 2, oil: 0, defense: 0 } },
+        { id: "2-4", title: "企業加速導入高效率設備", news: "為了壓低成本並提升生產效率，部分企業宣布加速導入自動化設備、資料管理系統與智慧製造流程。市場認為這可能帶動相關技術需求，但對其他產業的影響仍不明顯。", points: { chip: 3, green: 1, oil: 0, defense: 0 } }
+      ],
+      3: [
+        { id: "3-1", title: "低碳設備補助擴大", news: "政府宣布擴大低碳設備與能源轉型補助，企業開始評估是否更換現有能源系統。市場認為部分產業可能因此加速升級，但也有人擔心補助申請條件複雜，實際效果可能需要時間發酵。", points: { chip: 1, green: 3, oil: 0, defense: 0 } },
+        { id: "3-2", title: "企業更新生產與監控系統", news: "企業加速更新生產管理、能源監控與自動化系統，希望降低浪費並提升效率。市場開始關注相關設備、晶片與材料需求，但不同產業受惠程度仍有差異。", points: { chip: 3, green: 2, oil: 1, defense: 0 } },
+        { id: "3-3", title: "基礎建設與轉型工程增加", news: "多項基礎建設與能源轉型工程陸續啟動，市場開始關注上游材料、能源與設備需求。但部分投資人認為，這類工程的受惠產業不一定是最熱門的科技產業，資金流向可能出現轉移。", points: { chip: 0, green: 2, oil: 3, defense: 0 } },
+        { id: "3-4", title: "政策內容不如市場預期", news: "最新公布的補助細節不如市場原先期待，部分高成長產業出現失望性賣壓。投資人短期轉向較穩定、政策依賴程度較低的產業，希望降低不確定性帶來的損失。", points: { chip: -2, green: -3, oil: 0, defense: 2 } }
+      ],
+      4: [
+        { id: "4-1", title: "高估值標的出現獲利了結", news: "前幾輪漲幅較大的高成長標的開始出現獲利了結，市場風險偏好明顯下降。部分投資人認為漲多後本來就需要休息，也有人擔心這可能是資金撤離成長型產業的開始。", points: { chip: -2, green: -2, oil: 0, defense: 3 } },
+        { id: "4-2", title: "景氣數據轉弱，但基建計畫持續", news: "最新景氣數據略低於市場預期，企業投資態度變得保守。不過，政府表示基礎建設與公共投資計畫仍會持續推進，使市場開始思考哪些產業能在景氣轉弱時維持需求。", points: { chip: -2, green: 0, oil: 3, defense: 1 } },
+        { id: "4-3", title: "企業縮減支出，但保留效率升級", news: "面對成本壓力，企業開始刪減非必要支出，但仍保留能降低成本、提高效率的投資項目。市場認為，若企業真的要花錢，可能會優先投入能直接改善營運效率的技術。", points: { chip: 3, green: 0, oil: -2, defense: 0 } },
+        { id: "4-4", title: "市場保守，但長期轉型方向未變", news: "雖然投資人短期轉趨保守，但長期能源轉型、低碳交通與產業升級的方向並未改變。部分資金重新回到具有政策支撐的產業，但市場整體仍保持謹慎。", points: { chip: 0, green: 3, oil: 0, defense: 1 } }
+      ],
+      5: [
+        { id: "5-1", title: "企業訂單與資本支出回升", news: "企業訂單與資本支出同步回升，市場重新看好設備更新、技術升級與供應鏈需求。投資人情緒轉為樂觀，但仍有人提醒，前期成本壓力尚未完全消失。", points: { chip: 3, green: 2, oil: 1, defense: 0 } },
+        { id: "5-2", title: "製造與基建活動擴張", news: "基礎建設與製造活動出現擴張跡象，上游材料、能源與運輸需求同步受到關注。市場認為景氣可能正在回溫，但資金並沒有完全流向同一類產業。", points: { chip: 0, green: 1, oil: 3, defense: 1 } },
+        { id: "5-3", title: "新一輪轉型投資受到期待", news: "市場預期新一輪產業轉型投資即將啟動，相關替代性產業重新受到資金關注。不過，投資人對誰會成為最大受惠者仍有不同看法，部分資金選擇分散配置。", points: { chip: 2, green: 2, oil: 1, defense: 0 } },
+        { id: "5-4", title: "就業與消費數據回穩", news: "就業與消費數據回穩，家庭支出逐漸恢復正常，市場對需求型產業的信心提高。同時，部分能源與原物料需求也隨著經濟活動回溫而改善，但高成長產業表現相對平淡。", points: { chip: 0, green: 0, oil: 2, defense: 2 } }
+      ]
+    };
+
+    // 點數卡：現金事件。抽到後會自動加減玩家現金。
+    const pointCards = [
+      { title: "中樂透", cash: 2 },
+      { title: "感冒掛號費", cash: -2 },
+      { title: "錢包不見", cash: -5 },
+      { title: "中發票", cash: 5 },
+      { title: "繼承遺產", cash: 50 },
+      { title: "年終獎金", cash: 30 },
+      { title: "老闆加薪", cash: 20 },
+      { title: "紅包", cash: 20 },
+      { title: "信用卡卡費", cash: -30 },
+      { title: "車子維修", cash: -10 },
+      { title: "被詐騙", cash: -30 },
+      { title: "存款利息", cash: 10 }
+    ];
+
+    const interactiveFates = [
+      { title: "情報交換", text: "指定一位玩家玩小遊戲，贏的人可以知道對方是否抽到資訊卡。" },
+      { title: "偷窺持倉", text: "可以秘密查看一位玩家其中一項商品持有數量。" },
+      { title: "市場謠言", text: "你可以公開發布一句市場謠言，內容可以是真的，也可以是假的。" },
+      { title: "避險機會", text: "本輪你可以指定一項商品，若該商品下跌，最多只扣 3 點。請主持人手動記錄。" },
+      { title: "強制公開", text: "指定一位玩家公開自己持有最多的商品名稱，不公開數量。" },
+      { title: "反向操作", text: "本輪結算前，你可以把其中一項商品 1 單位轉換成另一項商品 1 單位。請主持人手動處理。" }
+    ];
+
+    // =============================
+    // 遊戲狀態
+    // =============================
+
+    let state = createInitialState();
+    let timerId = null;
+    let remainingSeconds = 180;
+
+    function createInitialState() {
+      return {
+        round: 0,
+        stage: "準備中",
+        bigEventVisible: false,
+        currentEvent: null,
+        pointsVisible: false,
+        cardsDrawn: false,
+        settledRounds: {},
+        records: [],
+        players: Array.from({ length: 4 }, (_, index) => ({
+          id: index + 1,
+          name: `玩家 ${index + 1}`,
+          cash: INITIAL_CASH,
+          holdings: products.reduce((acc, product) => ({ ...acc, [product.key]: 0 }), {}),
+          lastProfit: 0,
+          cards: [],
+          history: []
+        }))
+      };
+    }
+
+    // =============================
+    // 共用工具
+    // =============================
+
+    const $ = (id) => document.getElementById(id);
+    const productName = (key) => products.find((product) => product.key === key).name;
+    const signed = (value) => value > 0 ? `+${value}` : `${value}`;
+    const classByNumber = (value) => value > 0 ? "gain" : value < 0 ? "loss" : "flat";
+    const randomItem = (items) => items[Math.floor(Math.random() * items.length)];
+    const shuffle = (items) => [...items].sort(() => Math.random() - 0.5);
+
+    function totalAssets(player) {
+      const holdingsValue = products.reduce((sum, product) => sum + player.holdings[product.key] * UNIT_PRICE, 0);
+      return player.cash + holdingsValue;
+    }
+
+    function setStage(stage) {
+      state.stage = stage;
+      render();
+    }
+
+    function setMessage(message, isError = false) {
+      const box = $("systemMessage");
+      box.textContent = message;
+      box.style.color = isError ? "var(--danger)" : "#fff1a8";
+    }
+
+    function resetAdjustInputs() {
+      state.players.forEach((player) => {
+        products.forEach((product) => {
+          const input = document.querySelector(`[data-adjust="${player.id}-${product.key}"]`);
+          if (input) input.value = 0;
+        });
+      });
+    }
+
+    function clearTimer() {
+      if (timerId) clearInterval(timerId);
+      timerId = null;
+      remainingSeconds = 180;
+      $("timerDisplay").textContent = "03:00";
+    }
+
+    // =============================
+    // 遊戲動作
+    // =============================
+
+    function initializeGame() {
+      const existingNames = [...document.querySelectorAll("[data-name-input]")].map((input) => input.value.trim());
+      state = createInitialState();
+      state.players.forEach((player, index) => {
+        if (existingNames[index]) player.name = existingNames[index];
+      });
+      clearTimer();
+      setMessage("遊戲已初始化。可先設定玩家名稱，接著顯示大事件並輸入初始投資。");
+      render();
+    }
+
+    function applyPlayerNames() {
+      state.players.forEach((player, index) => {
+        const input = document.querySelector(`[data-name-input="${index}"]`);
+        player.name = input.value.trim() || `玩家 ${index + 1}`;
+      });
+      setMessage("玩家名稱已更新。");
+      render();
+    }
+
+    function showBigEvent() {
+      state.bigEventVisible = true;
+      state.stage = "大事件";
+      setMessage("大事件已顯示。請主持人帶入市場背景。");
+      render();
+    }
+
+    function startRound() {
+      if (state.round >= MAX_ROUNDS) {
+        setMessage("已經完成第 5 輪，可結束遊戲。", true);
+        return;
+      }
+      state.round += 1;
+      state.currentEvent = null;
+      state.pointsVisible = false;
+      state.cardsDrawn = false;
+      state.players.forEach((player) => {
+        player.lastProfit = 0;
+        player.cards = [];
+      });
+      clearTimer();
+      resetAdjustInputs();
+      setStage(`第 ${state.round} 輪開始`);
+      setMessage(`第 ${state.round} 輪已開始。請抽小事件。`);
+    }
+
+    function drawSmallEvent() {
+      if (!state.round) {
+        setMessage("請先開始第 1 輪。", true);
+        return;
+      }
+      if (state.currentEvent) {
+        setMessage("本輪已抽過小事件。若要重新抽，請先進入下一輪或重置。", true);
+        return;
+      }
+      state.currentEvent = randomItem(roundEvents[state.round]);
+      state.pointsVisible = false;
+      setStage(`第 ${state.round} 輪：新聞發布`);
+      setMessage(`已抽出小事件：「${state.currentEvent.title}」。`);
+      render();
+    }
+
+    function togglePoints() {
+      if (!state.currentEvent) {
+        setMessage("尚未抽出本輪小事件。", true);
+        return;
+      }
+      state.pointsVisible = !state.pointsVisible;
+      setMessage(state.pointsVisible ? "主持人漲跌資訊已顯示。" : "本輪漲跌已隱藏。");
+      render();
+    }
+
+    function drawCards() {
+      if (!state.currentEvent) {
+        setMessage("請先抽小事件，資訊卡才會根據本輪實際方向產生。", true);
+        return;
+      }
+      if (state.cardsDrawn) {
+        setMessage("本輪已抽過卡。", true);
+        return;
+      }
+
+      const roundCardTypes = shuffle(["info", "product", "fate", "point"]);
+      state.players.forEach((player, index) => {
+        const type = roundCardTypes[index];
+        const card = type === "info" ? createInfoCard()
+          : type === "point" ? createPointCard(player)
+          : type === "product" ? createProductCard(player)
+          : createFateCard(player);
+        player.cards = [card];
+        player.history.push(`第 ${state.round} 輪抽到：${card.title}。${card.summary}`);
+      });
+
+      state.cardsDrawn = true;
+      setStage(`第 ${state.round} 輪：抽卡階段`);
+      setMessage("四位玩家已各抽一張卡；本輪固定包含資訊卡、商品卡、命運卡、點數卡各一張。點數卡已自動加減現金。");
+      render();
+    }
+
+    function createInfoCard() {
+      const product = randomItem(products);
+      const point = state.currentEvent.points[product.key];
+      const direction = point > 0 ? "可能上漲" : point < 0 ? "可能下跌" : "可能持平";
+
+      return {
+        type: "info",
+        title: "資訊卡",
+        text: `你得知：「${product.name}」本輪${direction}。`,
+        summary: `得知 ${product.name} 本輪方向。`,
+        note: "請主持人私下告知該玩家"
+      };
+    }
+
+    function createPointCard(player) {
+      const card = randomItem(pointCards);
+      player.cash += card.cash;
+
+      return {
+        type: "point",
+        title: `點數卡：${card.title}`,
+        text: card.cash >= 0 ? `獲得 ${card.cash} 點現金。` : `損失 ${Math.abs(card.cash)} 點現金。`,
+        summary: `現金 ${signed(card.cash)} 點。`,
+        note: "現金型點數卡，系統已自動加減現金"
+      };
+    }
+
+    function createProductCard(player) {
+      const product = randomItem(products);
+      const amount = Math.floor(Math.random() * 3) + 1;
+      player.holdings[product.key] += amount;
+      return {
+        type: "product",
+        title: "商品卡",
+        text: `你獲得「${product.name}」${amount} 單位。`,
+        summary: `獲得 ${product.name} ${amount} 單位。`,
+        note: "不公開，請主持人私下記錄；系統已自動增加"
+      };
+    }
+
+    function createFateCard(player) {
+      const fate = randomItem(interactiveFates);
+      return {
+        type: "fate",
+        title: `命運卡：${fate.title}`,
+        text: fate.text,
+        summary: `互動效果：${fate.title}。`,
+        note: "互動型命運卡，請主持人手動處理"
+      };
+    }
+
+    function startTimer() {
+      clearTimer();
+      state.stage = `第 ${state.round || 1} 輪：討論階段`;
+      timerId = setInterval(() => {
+        remainingSeconds -= 1;
+        const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, "0");
+        const seconds = String(remainingSeconds % 60).padStart(2, "0");
+        $("timerDisplay").textContent = `${minutes}:${seconds}`;
+        if (remainingSeconds <= 0) {
+          clearTimer();
+          $("timerDisplay").textContent = "00:00";
+          setMessage("討論時間結束，請進入投資調整。");
+        }
+      }, 1000);
+      setMessage("3 分鐘討論倒數已開始。");
+      render();
+    }
+
+    function applyAdjustments() {
+      const phaseLabel = state.round ? `第 ${state.round} 輪` : "初始投資";
+
+      const changes = [];
+      for (const player of state.players) {
+        const proposed = {};
+        for (const product of products) {
+          const input = document.querySelector(`[data-adjust="${player.id}-${product.key}"]`);
+          const value = Number.parseInt(input.value || "0", 10);
+          if (!Number.isFinite(value)) {
+            setMessage(`${player.name} 的 ${product.name} 輸入不是有效數字。`, true);
+            return;
+          }
+          proposed[product.key] = value;
+        }
+
+        const buyCost = products.reduce((sum, product) => sum + Math.max(0, proposed[product.key]) * UNIT_PRICE, 0);
+        const sellGain = products.reduce((sum, product) => sum + Math.max(0, -proposed[product.key]) * UNIT_PRICE, 0);
+
+        if (player.cash < buyCost) {
+          setMessage(`${player.name} 現金不足，無法買入總成本 ${buyCost} 點的商品。`, true);
+          return;
+        }
+
+        for (const product of products) {
+          if (player.holdings[product.key] + proposed[product.key] < 0) {
+            setMessage(`${player.name} 的 ${product.name} 持有單位不足，不能賣出 ${Math.abs(proposed[product.key])} 單位。`, true);
+            return;
+          }
+        }
+
+        changes.push({ player, proposed, buyCost, sellGain });
+      }
+
+      changes.forEach(({ player, proposed, buyCost, sellGain }) => {
+        products.forEach((product) => {
+          player.holdings[product.key] += proposed[product.key];
+        });
+        player.cash = player.cash - buyCost + sellGain;
+
+        const detail = products
+          .filter((product) => proposed[product.key] !== 0)
+          .map((product) => `${productName(product.key)} ${signed(proposed[product.key])}`)
+          .join("、") || "未調整";
+        player.history.push(`${phaseLabel}投資調整：${detail}。`);
+      });
+
+      resetAdjustInputs();
+      setStage(state.round ? `第 ${state.round} 輪：投資調整完成` : "初始投資完成");
+      setMessage(state.round ? "投資調整已套用。" : "初始投資已套用。每 1 單位已自動扣除 5 點。");
+      render();
+    }
+
+    function settleRound() {
+      if (!state.currentEvent) {
+        setMessage("請先抽小事件。", true);
+        return;
+      }
+      if (state.settledRounds[state.round]) {
+        setMessage(`第 ${state.round} 輪已結算過，不能重複結算。`, true);
+        return;
+      }
+
+      const playerResults = state.players.map((player) => {
+        const profit = products.reduce((sum, product) => {
+          return sum + player.holdings[product.key] * state.currentEvent.points[product.key];
+        }, 0);
+        player.cash += profit;
+        player.lastProfit = profit;
+        const assetsAfter = totalAssets(player);
+        player.history.push(`第 ${state.round} 輪結算：本輪盈虧 ${signed(profit)} 點，回合後總資產 ${assetsAfter} 點。`);
+        return { playerName: player.name, profit, assetsAfter };
+      });
+
+      state.settledRounds[state.round] = true;
+      state.records.push({
+        round: state.round,
+        event: state.currentEvent,
+        playerResults
+      });
+      state.pointsVisible = true;
+      setStage(`第 ${state.round} 輪：結算完成`);
+      setMessage(`第 ${state.round} 輪已結算，排行榜已更新。`);
+      render();
+    }
+
+    function nextRound() {
+      if (!state.round) {
+        setMessage("請先開始第 1 輪。", true);
+        return;
+      }
+      if (!state.settledRounds[state.round]) {
+        setMessage("本輪尚未結算，請先結算本輪。", true);
+        return;
+      }
+      if (state.round >= MAX_ROUNDS) {
+        endGame();
+        return;
+      }
+      setMessage(`準備進入第 ${state.round + 1} 輪。請按「開始第 ${state.round + 1} 輪」。`);
+      state.stage = "等待下一輪";
+      render();
+    }
+
+    function endGame() {
+      if (state.round < MAX_ROUNDS) {
+        const confirmEnd = window.confirm("遊戲尚未到第 5 輪，確定要提前結束嗎？");
+        if (!confirmEnd) return;
+      }
+      state.stage = "遊戲結束";
+      state.pointsVisible = true;
+      setMessage("遊戲結束，請查看最終排行榜與講評文字。");
+      render();
+      $("finalArea").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function resetGame() {
+      const shouldReset = window.confirm("確定要重置整場遊戲嗎？所有紀錄會清空。");
+      if (!shouldReset) return;
+      initializeGame();
+    }
+
+    // =============================
+    // 畫面渲染
+    // =============================
+
+    function render() {
+      $("roundLabel").textContent = state.round ? `第 ${state.round} / ${MAX_ROUNDS} 輪` : "尚未開始";
+      $("stageLabel").textContent = state.stage;
+      $("startRoundBtn").textContent = `開始第 ${Math.min(state.round + 1, MAX_ROUNDS)} 輪`;
+      $("togglePointsBtn").textContent = state.pointsVisible ? "隱藏本輪漲跌" : "查看本輪漲跌";
+
+      renderNames();
+      renderBigEvent();
+      renderPlayers();
+      renderProducts();
+      renderSmallEvent();
+      renderCards();
+      renderAdjustments();
+      renderLeaderboard();
+      renderRecords();
+      renderFinal();
+      updateButtonStates();
+    }
+
+    function renderNames() {
+      $("nameInputs").innerHTML = state.players.map((player, index) => `
+        <div class="name-box">
+          <label>第 ${index + 1} 位玩家</label>
+          <input data-name-input="${index}" value="${escapeHtml(player.name)}" />
+        </div>
+      `).join("");
+    }
+
+    function renderBigEvent() {
+      $("bigEvent").innerHTML = `
+        <div>
+          <h2>大事件</h2>
+          <p>${state.bigEventVisible ? escapeHtml(bigEventText).replace(/\n/g, "<br>") : "按下「顯示大事件」開始投影開場劇情。"}</p>
+        </div>
+      `;
+    }
+
+    function renderPlayers() {
+      $("playersArea").innerHTML = state.players.map((player) => {
+        const cashClass = player.cash < 0 ? "cash-negative" : "";
+        const profitClass = classByNumber(player.lastProfit);
+        const holdingRows = products.map((product) => `
+          <div class="stat-row"><span>${product.name}</span><strong>${player.holdings[product.key]} 單位</strong></div>
+        `).join("");
+
+        return `
+          <article class="board-card player-card">
+            <h3>${escapeHtml(player.name)}</h3>
+            <div class="stat-list">
+              <div class="stat-row"><span>現金</span><strong class="${cashClass}">${player.cash} 點</strong></div>
+              ${holdingRows}
+              <div class="stat-row"><span>總資產</span><strong>${totalAssets(player)} 點</strong></div>
+              <div class="stat-row"><span>本輪盈虧</span><strong class="${profitClass}">${signed(player.lastProfit)} 點</strong></div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderProducts() {
+      $("productsArea").innerHTML = products.map((product) => `
+        <article class="board-card product-card">
+          <h3>${product.name}</h3>
+          <p class="product-desc">${product.desc}</p>
+          <span class="price-tag">每單位 5 點</span>
+        </article>
+      `).join("");
+    }
+
+    function renderSmallEvent() {
+      if (!state.currentEvent) {
+        $("smallEventArea").innerHTML = `
+          <h3>尚未抽出小事件</h3>
+          <p>每輪開始後，請按「抽小事件」。玩家只看新聞版本；隱藏漲跌由主持人控制顯示。</p>
+        `;
+        return;
+      }
+
+      const points = products.map((product) => {
+        const point = state.currentEvent.points[product.key];
+        return `<div class="point-box"><div>${product.name}</div><strong class="${classByNumber(point)}">${signed(point)} 點</strong></div>`;
+      }).join("");
+
+      $("smallEventArea").innerHTML = `
+        <h3>${state.currentEvent.title}</h3>
+        <p>${state.currentEvent.news}</p>
+        ${state.pointsVisible ? `<div class="hidden-points">${points}</div>` : ""}
+      `;
+    }
+
+    function renderCards() {
+      const cards = state.players.flatMap((player) => {
+        if (!player.cards.length) return [];
+        return player.cards.map((card) => ({ ...card, owner: player.name }));
+      });
+
+      if (!cards.length) {
+        $("cardsArea").innerHTML = `<div class="empty">尚未抽卡。每輪按「抽卡」後，四位玩家會各得到一張卡。</div>`;
+        return;
+      }
+
+      $("cardsArea").innerHTML = cards.map((card) => `
+        <article class="board-card draw-card ${card.type}">
+          <div class="card-owner">${escapeHtml(card.owner)}</div>
+          <div class="card-type">${escapeHtml(card.title)}</div>
+          <div class="card-text">${escapeHtml(card.text)}</div>
+          <span class="private-note">${escapeHtml(card.note)}</span>
+        </article>
+      `).join("");
+    }
+
+    function renderAdjustments() {
+      $("adjustmentsArea").innerHTML = state.players.map((player) => `
+        <div class="adjust-player">
+          <h3>${escapeHtml(player.name)}</h3>
+          <div class="adjust-inputs">
+            ${products.map((product) => `
+              <div class="field">
+                <label>${product.name}（+買 / -賣）</label>
+                <input type="number" step="1" value="0" data-adjust="${player.id}-${product.key}" />
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderLeaderboard() {
+      const sorted = [...state.players].sort((a, b) => totalAssets(b) - totalAssets(a));
+      $("leaderboardArea").innerHTML = sorted.map((player, index) => `
+        <div class="leader-row ${index === 0 ? "first" : ""}">
+          <strong>#${index + 1}</strong>
+          <span>${escapeHtml(player.name)}</span>
+          <strong>${totalAssets(player)} 點</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderRecords() {
+      if (!state.records.length) {
+        $("recordsArea").innerHTML = `<div class="empty">尚無結算紀錄。</div>`;
+        return;
+      }
+
+      $("recordsArea").innerHTML = state.records.map((record) => {
+        const points = products.map((product) => `${product.name} ${signed(record.event.points[product.key])}`).join("、");
+        const results = record.playerResults.map((result) =>
+          `${escapeHtml(result.playerName)}：盈虧 <span class="${classByNumber(result.profit)}">${signed(result.profit)}</span>，總資產 ${result.assetsAfter}`
+        ).join("<br>");
+        return `
+          <article class="record-item">
+            <h3>第 ${record.round} 輪：${record.event.title}</h3>
+            <div>商品點數：${points}</div>
+            <div>${results}</div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderFinal() {
+      const shouldShow = state.stage === "遊戲結束";
+      $("finalArea").style.display = shouldShow ? "block" : "none";
+      if (!shouldShow) return;
+
+      const ranked = [...state.players].sort((a, b) => totalAssets(b) - totalAssets(a));
+      const rankingHtml = ranked.map((player, index) => `
+        <div class="leader-row ${index === 0 ? "first" : ""}">
+          <strong>#${index + 1}</strong>
+          <span>${escapeHtml(player.name)}</span>
+          <strong>${totalAssets(player)} 點</strong>
+        </div>
+      `).join("");
+
+      const histories = state.players.map((player) => `
+        <div class="history-block">
+          <strong>${escapeHtml(player.name)} 投資紀錄</strong><br>
+          ${player.history.length ? player.history.map(escapeHtml).join("<br>") : "尚無紀錄"}
+        </div>
+      `).join("");
+
+      $("finalContent").innerHTML = `
+        ${rankingHtml}
+        <p>本遊戲中的新聞事件皆為模擬情境，參考現實市場常見的投資邏輯改寫而成，並不代表真實投資建議。商品點數為遊戲平衡設計，並非對任何股票、產業或 ETF 的實際預測。</p>
+        <p>投資結果不只取決於運氣，也受到資訊取得、風險分散、同儕討論、謠言判斷與決策紀律影響。資產最高者可能承擔較高風險，資產較低者也可能在某些回合做出良好的判斷。</p>
+        ${histories}
+      `;
+    }
+
+    function updateButtonStates() {
+      $("drawEventBtn").disabled = !state.round || Boolean(state.currentEvent);
+      $("togglePointsBtn").disabled = !state.currentEvent;
+      $("drawCardsBtn").disabled = !state.currentEvent || state.cardsDrawn;
+      $("settleBtn").disabled = !state.currentEvent || Boolean(state.settledRounds[state.round]);
+      $("nextRoundBtn").disabled = !state.round || !state.settledRounds[state.round] || state.stage === "遊戲結束";
+      $("endGameBtn").disabled = state.stage === "遊戲結束";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    // =============================
+    // 事件綁定
+    // =============================
+
+    $("initBtn").addEventListener("click", initializeGame);
+    $("setNamesBtn").addEventListener("click", applyPlayerNames);
+    $("showBigEventBtn").addEventListener("click", showBigEvent);
+    $("startRoundBtn").addEventListener("click", startRound);
+    $("drawEventBtn").addEventListener("click", drawSmallEvent);
+    $("togglePointsBtn").addEventListener("click", togglePoints);
+    $("drawCardsBtn").addEventListener("click", drawCards);
+    $("timerBtn").addEventListener("click", startTimer);
+    $("applyAdjustmentsBtn").addEventListener("click", applyAdjustments);
+    $("settleBtn").addEventListener("click", settleRound);
+    $("nextRoundBtn").addEventListener("click", nextRound);
+    $("endGameBtn").addEventListener("click", endGame);
+    $("resetBtn").addEventListener("click", resetGame);
+
+    render();
+  </script>
+</body>
+</html>

@@ -410,6 +410,7 @@
         return `<div class="point-box">${product.name}<br><strong class="${numClass(point)}">${signed(point)} 點</strong></div>`;
       }).join("") : "";
       $("eventArea").innerHTML = `
+        <h3>事件資訊</h3>
         <p>${escapeHtml(data.currentEvent.news)}</p>
         <p class="muted">抽事件玩家：${escapeHtml(data.eventDrawnByName || "尚未記錄")}</p>
         ${points ? `<div class="points">${points}</div><div class="market-note"><strong>本輪市場解讀</strong><br>${escapeHtml(data.currentEvent.explanation || "")}</div>` : ""}

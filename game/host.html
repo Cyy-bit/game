@@ -128,9 +128,15 @@
       text-shadow: 0 0 12px rgba(46, 233, 255, 0.45);
     }
 
-    .controls, .name-grid, .product-grid, .player-grid, .card-grid, .point-grid {
+    .controls, .name-grid, .player-grid, .card-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .product-grid, .point-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
       gap: 12px;
     }
 
@@ -227,7 +233,7 @@
 
     .adjust-inputs {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 10px;
     }
 
@@ -527,6 +533,7 @@
         return `<div class="point-box">${product.name}<br><strong class="${numClass(point)}">${signed(point)} 點</strong></div>`;
       }).join("");
       $("event").innerHTML = `
+        <h3>事件資訊</h3>
         <p>${data.currentEvent.news}</p>
         <p class="muted">抽事件玩家：${data.eventDrawnByName || "主持人"}</p>
         ${data.pointsVisible ? `<div class="point-grid">${points}</div><div class="market-note"><strong>本輪市場解讀</strong><br>${escapeHtml(data.currentEvent.explanation || "")}</div>` : ""}

@@ -297,6 +297,30 @@
 
     .message { min-height: 32px; color: #fff1a8; font-size: 18px; line-height: 1.45; margin-top: 10px; }
     .url-box { word-break: break-all; font-size: 18px; color: #d8fbff; }
+    .trend-chart {
+      min-height: 360px;
+      border: 2px solid rgba(46, 233, 255, 0.25);
+      border-radius: 8px;
+      background: radial-gradient(circle at 20% 0%, rgba(255, 75, 216, 0.12), transparent 32%), rgba(3, 7, 24, 0.62);
+      padding: 12px;
+      overflow-x: auto;
+    }
+
+    .trend-chart svg {
+      width: 100%;
+      min-width: 520px;
+      height: 330px;
+      display: block;
+    }
+
+    .trend-empty {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
 
     @media (max-width: 1150px) {
       .topbar, .grid { grid-template-columns: 1fr; }
@@ -315,6 +339,8 @@
       <h1>資訊迷霧：誰能看穿市場？</h1>
       <div class="status">
         <div class="pill">主持人連線版</div>
+        <div class="pill">大事件：<span id="scenarioName">AI 熱潮與多資產輪動</span></div>
+        <div class="pill">局數：<span id="gameLabel">第 1 / 4 局</span></div>
         <div class="pill">回合：<span id="round">尚未開始</span></div>
         <div class="pill">階段：<span id="stage">準備中</span></div>
       </div>
@@ -341,6 +367,8 @@
             <button data-action="applyAdjustments">套用投資調整</button>
             <button data-action="settleRound">結算本輪</button>
             <button data-action="nextRound">下一輪</button>
+            <button data-action="openNextGame">開啟下一局</button>
+            <button data-action="resetScenarioPool">重置此大事件事件池</button>
             <button data-action="endGame">結束遊戲</button>
           </div>
           <div id="message" class="message"></div>
@@ -408,6 +436,11 @@
         </section>
 
         <section class="section">
+          <h2 class="section-title">本局商品走勢圖</h2>
+          <div id="trendChart" class="trend-chart"></div>
+        </section>
+
+        <section class="section">
           <h2 class="section-title">結算紀錄</h2>
           <div id="records"></div>
         </section>
@@ -423,6 +456,7 @@
     const cardNames = { info: "資訊卡", product: "商品卡", fate: "命運卡", point: "點數卡" };
 
     async function action(type, extra = {}) {
+      if (type === "resetScenarioPool" && !confirm("確定要重置此大事件事件池嗎？這會清空已使用小事件紀錄，並把本局遊戲回到初始狀態。")) return;
       if (type === "setNames") extra.names = [...document.querySelectorAll("[data-name]")].map((input) => input.value);
       if (type === "applyAdjustments") extra.adjustments = buildAdjustments();
       extra.pin = $("hostPin").value;
@@ -460,6 +494,8 @@
 
     function render() {
       if (!$("hostPin").value) $("hostPin").value = localStorage.getItem("fogHostPin") || "";
+      $("scenarioName").textContent = data.scenarioName || "目前大事件";
+      $("gameLabel").textContent = `第 ${data.currentGame || 1} / ${data.maxGames || 4} 局`;
       $("round").textContent = data.round ? `第 ${data.round} / ${data.maxRounds} 輪` : "尚未開始";
       $("stage").textContent = data.stage;
       $("message").textContent = data.message || "";
@@ -478,6 +514,7 @@
       renderAdjustments();
       renderLeaderboard();
       renderPlayerCards();
+      renderTrendChart("trendChart");
       renderRecords();
     }
 
@@ -607,12 +644,71 @@
         return;
       }
       $("records").innerHTML = data.records.map((record) => {
-        const points = data.products.map((product) => `${product.name} ${signed(record.event.points[product.key])}`).join("、");
+        const recordPoints = record.points || record.event.points;
+        const eventLabel = record.eventId || record.event.id || "未記錄";
+        const points = data.products.map((product) => `${product.name} ${signed(recordPoints[product.key])}`).join("、");
         const results = record.playerResults.map((result) => `${escapeHtml(result.playerName)}：<span class="${numClass(result.profit)}">${signed(result.profit)}</span>，總資產 ${result.assetsAfter}`).join("<br>");
-        return `<div class="record"><strong>第 ${record.round} 輪：${record.event.title}</strong><br>商品點數：${points}<br>${results}</div>`;
+        return `<div class="record"><strong>第 ${record.game || data.currentGame || 1} 局／第 ${record.round} 輪／事件 ${escapeHtml(eventLabel)}</strong><br>商品點數：${points}<br>${results}</div>`;
       }).join("");
     }
 
+    function trendColor(index) {
+      return ["#2ee9ff", "#ff4bd8", "#46ff9d", "#ffca3a", "#a78bfa", "#ff7a59", "#7dd3fc", "#f472b6"][index % 8];
+    }
+
+    function renderTrendChart(targetId) {
+      const target = $(targetId);
+      if (!target || !data) return;
+      const trend = data.trendData || [];
+      if (!trend.length) {
+        target.innerHTML = '<div class="trend-empty">尚未有已結算輪次。<br>每輪結算後，商品點數會加入本局走勢圖。</div>';
+        return;
+      }
+
+      const width = 760;
+      const height = 330;
+      const left = 58;
+      const right = 190;
+      const top = 28;
+      const bottom = 54;
+      const chartWidth = width - left - right;
+      const chartHeight = height - top - bottom;
+      const minY = -3;
+      const maxY = 3;
+      const xForRound = (round) => left + ((round - 1) / Math.max(1, (data.maxRounds || 5) - 1)) * chartWidth;
+      const yForPoint = (point) => top + ((maxY - point) / (maxY - minY)) * chartHeight;
+      const rows = [];
+
+      for (let point = minY; point <= maxY; point += 1) {
+        const y = yForPoint(point);
+        const isZero = point === 0;
+        rows.push('<line x1="' + left + '" y1="' + y + '" x2="' + (left + chartWidth) + '" y2="' + y + '" stroke="' + (isZero ? 'rgba(255,255,255,.78)' : 'rgba(255,255,255,.13)') + '" stroke-width="' + (isZero ? 2 : 1) + '"/>');
+        rows.push('<text x="' + (left - 14) + '" y="' + (y + 5) + '" fill="' + (isZero ? '#f8fbff' : '#aeb8d8') + '" font-size="13" text-anchor="end">' + signed(point) + '</text>');
+      }
+
+      for (let round = 1; round <= (data.maxRounds || 5); round += 1) {
+        const x = xForRound(round);
+        rows.push('<line x1="' + x + '" y1="' + top + '" x2="' + x + '" y2="' + (top + chartHeight) + '" stroke="rgba(46,233,255,.12)"/>');
+        rows.push('<text x="' + x + '" y="' + (height - 24) + '" fill="#d8fbff" font-size="13" text-anchor="middle">第 ' + round + ' 輪</text>');
+      }
+
+      data.products.forEach((product, index) => {
+        const color = trendColor(index);
+        const points = trend
+          .filter((entry) => entry.points && entry.points[product.key] !== undefined)
+          .sort((a, b) => a.round - b.round)
+          .map((entry) => ({ round: entry.round, value: entry.points[product.key] }));
+        if (!points.length) return;
+        const d = points.map((entry, pointIndex) => (pointIndex ? "L" : "M") + xForRound(entry.round) + " " + yForPoint(entry.value)).join(" ");
+        rows.push('<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>');
+        points.forEach((entry) => rows.push('<circle cx="' + xForRound(entry.round) + '" cy="' + yForPoint(entry.value) + '" r="5" fill="' + color + '" stroke="#ffffff" stroke-width="1.5"/>'));
+        const legendY = 36 + index * 24;
+        rows.push('<line x1="' + (width - right + 28) + '" y1="' + legendY + '" x2="' + (width - right + 52) + '" y2="' + legendY + '" stroke="' + color + '" stroke-width="4" stroke-linecap="round"/>');
+        rows.push('<text x="' + (width - right + 62) + '" y="' + (legendY + 5) + '" fill="#f8fbff" font-size="14">' + escapeHtml(product.name) + '</text>');
+      });
+
+      target.innerHTML = '<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="本局商品走勢圖"><defs><filter id="glow" x="-35%" y="-35%" width="170%" height="170%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#2ee9ff" flood-opacity="0.5"/></filter></defs><rect x="0" y="0" width="' + width + '" height="' + height + '" rx="8" fill="rgba(4,8,24,.2)"/>' + rows.join("") + '</svg>';
+    }
     function escapeHtml(value) {
       return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
     }

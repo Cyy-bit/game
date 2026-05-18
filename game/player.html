@@ -246,6 +246,31 @@
     }
 
     .message { min-height: 28px; color: #fff1a8; line-height: 1.45; }
+    .trend-chart {
+      min-height: 300px;
+      border: 2px solid rgba(46, 233, 255, 0.25);
+      border-radius: 8px;
+      background: radial-gradient(circle at 20% 0%, rgba(255, 75, 216, 0.12), transparent 32%), rgba(3, 7, 24, 0.62);
+      padding: 10px;
+      overflow-x: auto;
+    }
+
+    .trend-chart svg {
+      width: 100%;
+      min-width: 520px;
+      height: 290px;
+      display: block;
+    }
+
+    .trend-empty {
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
     .muted { color: var(--muted); }
     .good { color: var(--good); }
     .bad { color: var(--danger); }
@@ -261,6 +286,7 @@
       <h1>資訊迷霧</h1>
       <div class="status">
         <span class="pill">玩家頁</span>
+        <span class="pill">局數：<span id="gameLabel">第 1 / 4 局</span></span>
         <span class="pill">回合：<span id="round">尚未開始</span></span>
         <span class="pill">階段：<span id="stage">準備中</span></span>
       </div>
@@ -278,6 +304,11 @@
     <section class="section">
       <h2>我的資產</h2>
       <div id="myStats" class="stats"></div>
+    </section>
+
+    <section class="section">
+      <h2>本局商品走勢圖</h2>
+      <div id="trendChart" class="trend-chart"></div>
     </section>
 
     <section class="section">
@@ -341,6 +372,7 @@
     }
 
     function render() {
+      $("gameLabel").textContent = `第 ${data.currentGame || 1} / ${data.maxGames || 4} 局`;
       $("round").textContent = data.round ? `第 ${data.round} / ${data.maxRounds} 輪` : "尚未開始";
       $("stage").textContent = data.stage;
       $("message").textContent = data.message || "";
@@ -351,6 +383,7 @@
       renderTimer();
       renderEvent();
       renderCards();
+      renderTrendChart("trendChart");
       renderLeaderboard();
     }
 
@@ -474,6 +507,63 @@
       `).join("");
     }
 
+    function trendColor(index) {
+      return ["#2ee9ff", "#ff4bd8", "#46ff9d", "#ffca3a", "#a78bfa", "#ff7a59", "#7dd3fc", "#f472b6"][index % 8];
+    }
+
+    function renderTrendChart(targetId) {
+      const target = $(targetId);
+      if (!target || !data) return;
+      const trend = data.trendData || [];
+      if (!trend.length) {
+        target.innerHTML = '<div class="trend-empty">尚未公布任何輪次。<br>每輪結算後才會顯示商品點數。</div>';
+        return;
+      }
+
+      const width = 680;
+      const height = 290;
+      const left = 50;
+      const right = 168;
+      const top = 24;
+      const bottom = 48;
+      const chartWidth = width - left - right;
+      const chartHeight = height - top - bottom;
+      const minY = -3;
+      const maxY = 3;
+      const xForRound = (round) => left + ((round - 1) / Math.max(1, (data.maxRounds || 5) - 1)) * chartWidth;
+      const yForPoint = (point) => top + ((maxY - point) / (maxY - minY)) * chartHeight;
+      const rows = [];
+
+      for (let point = minY; point <= maxY; point += 1) {
+        const y = yForPoint(point);
+        const isZero = point === 0;
+        rows.push('<line x1="' + left + '" y1="' + y + '" x2="' + (left + chartWidth) + '" y2="' + y + '" stroke="' + (isZero ? 'rgba(255,255,255,.78)' : 'rgba(255,255,255,.13)') + '" stroke-width="' + (isZero ? 2 : 1) + '"/>');
+        rows.push('<text x="' + (left - 12) + '" y="' + (y + 5) + '" fill="' + (isZero ? '#f8fbff' : '#aeb8d8') + '" font-size="12" text-anchor="end">' + signed(point) + '</text>');
+      }
+
+      for (let round = 1; round <= (data.maxRounds || 5); round += 1) {
+        const x = xForRound(round);
+        rows.push('<line x1="' + x + '" y1="' + top + '" x2="' + x + '" y2="' + (top + chartHeight) + '" stroke="rgba(46,233,255,.12)"/>');
+        rows.push('<text x="' + x + '" y="' + (height - 20) + '" fill="#d8fbff" font-size="12" text-anchor="middle">第 ' + round + ' 輪</text>');
+      }
+
+      data.products.forEach((product, index) => {
+        const color = trendColor(index);
+        const points = trend
+          .filter((entry) => entry.points && entry.points[product.key] !== undefined)
+          .sort((a, b) => a.round - b.round)
+          .map((entry) => ({ round: entry.round, value: entry.points[product.key] }));
+        if (!points.length) return;
+        const d = points.map((entry, pointIndex) => (pointIndex ? "L" : "M") + xForRound(entry.round) + " " + yForPoint(entry.value)).join(" ");
+        rows.push('<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>');
+        points.forEach((entry) => rows.push('<circle cx="' + xForRound(entry.round) + '" cy="' + yForPoint(entry.value) + '" r="4.5" fill="' + color + '" stroke="#ffffff" stroke-width="1.2"/>'));
+        const legendY = 30 + index * 22;
+        rows.push('<line x1="' + (width - right + 24) + '" y1="' + legendY + '" x2="' + (width - right + 46) + '" y2="' + legendY + '" stroke="' + color + '" stroke-width="3.5" stroke-linecap="round"/>');
+        rows.push('<text x="' + (width - right + 54) + '" y="' + (legendY + 5) + '" fill="#f8fbff" font-size="12">' + escapeHtml(product.name) + '</text>');
+      });
+
+      target.innerHTML = '<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="本局商品走勢圖"><defs><filter id="glow" x="-35%" y="-35%" width="170%" height="170%"><feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#2ee9ff" flood-opacity="0.5"/></filter></defs><rect x="0" y="0" width="' + width + '" height="' + height + '" rx="8" fill="rgba(4,8,24,.2)"/>' + rows.join("") + '</svg>';
+    }
     function claimCard(cardId) {
       action("claimCard", { cardId });
     }

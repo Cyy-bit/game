@@ -7,6 +7,9 @@ const HOST_PIN = process.env.HOST_PIN || "";
 const UNIT_PRICE = 5;
 const INITIAL_CASH = 50;
 const MAX_ROUNDS = 5;
+const MAX_GAMES_PER_SCENARIO = 4;
+const SCENARIO_ID = "ai_rotation";
+const SCENARIO_NAME = "AI 熱潮與多資產輪動";
 
 const bigEventText = `AI 熱潮與多資產輪動
 
@@ -355,8 +358,34 @@ let state = makeState();
 let version = 0;
 const sseClients = new Set();
 
-function makeState() {
+function makeUsedEventsByRound() {
+  return Object.fromEntries(Array.from({ length: MAX_ROUNDS }, (_, index) => [String(index + 1), []]));
+}
+
+function makeScenarioProgress() {
   return {
+    [SCENARIO_ID]: {
+      gameNumber: 1,
+      usedEventsByRound: makeUsedEventsByRound()
+    }
+  };
+}
+
+function makePlayers(names = []) {
+  return Array.from({ length: 4 }, (_, index) => ({
+    id: index + 1,
+    name: names[index] || `玩家 ${index + 1}`,
+    cash: INITIAL_CASH,
+    holdings: Object.fromEntries(products.map((product) => [product.key, 0])),
+    lastProfit: 0,
+    cards: [],
+    history: []
+  }));
+}
+
+function makeState(options = {}) {
+  return {
+    scenarioId: SCENARIO_ID,
     round: 0,
     stage: "準備中",
     bigEventVisible: false,
@@ -368,18 +397,40 @@ function makeState() {
     cardDeck: [],
     settledRounds: {},
     records: [],
+    trendData: [],
     discussionEndsAt: null,
+    scenarioProgress: options.scenarioProgress || makeScenarioProgress(),
     message: "連線版已準備好。",
-    players: Array.from({ length: 4 }, (_, index) => ({
-      id: index + 1,
-      name: `玩家 ${index + 1}`,
-      cash: INITIAL_CASH,
-      holdings: Object.fromEntries(products.map((product) => [product.key, 0])),
-      lastProfit: 0,
-      cards: [],
-      history: []
-    }))
+    players: makePlayers(options.names)
   };
+}
+
+function currentScenarioProgress() {
+  if (!state.scenarioProgress[state.scenarioId]) {
+    state.scenarioProgress[state.scenarioId] = { gameNumber: 1, usedEventsByRound: makeUsedEventsByRound() };
+  }
+  return state.scenarioProgress[state.scenarioId];
+}
+
+function currentGameNumber() {
+  return currentScenarioProgress().gameNumber;
+}
+
+function resetCurrentGame({ resetPool = false, nextGame = false } = {}) {
+  const names = state.players.map((player) => player.name);
+  const scenarioProgress = state.scenarioProgress;
+  const progress = currentScenarioProgress();
+  if (resetPool) {
+    scenarioProgress[state.scenarioId] = { gameNumber: 1, usedEventsByRound: makeUsedEventsByRound() };
+  } else if (nextGame) {
+    progress.gameNumber += 1;
+  }
+  state = makeState({ scenarioProgress, names });
+}
+
+function unusedEventsForRound(round) {
+  const used = currentScenarioProgress().usedEventsByRound[String(round)] || [];
+  return (roundEvents[round] || []).filter((event) => !used.includes(event.id));
 }
 
 function totalAssets(player) {
@@ -420,6 +471,12 @@ function baseState() {
     unitPrice: UNIT_PRICE,
     initialCash: INITIAL_CASH,
     bigEventText,
+    scenarioId: state.scenarioId,
+    scenarioName: SCENARIO_NAME,
+    currentGame: currentGameNumber(),
+    maxGames: MAX_GAMES_PER_SCENARIO,
+    usedEventsByRound: currentScenarioProgress().usedEventsByRound,
+    trendData: state.trendData,
     products,
     round: state.round,
     stage: state.stage,
@@ -625,6 +682,8 @@ function handleAction(payload) {
     "setNames",
     "showBigEvent",
     "startRound",
+    "openNextGame",
+    "resetScenarioPool",
     "openEventDraw",
     "togglePoints",
     "openCardDraw",
@@ -640,8 +699,20 @@ function handleAction(payload) {
   }
 
   if (type === "reset") {
-    state = makeState();
-    broadcast("遊戲已重置。");
+    resetCurrentGame();
+    broadcast("本局遊戲已重置，事件池保留。持有商品與走勢圖已清空。");
+    return;
+  }
+  if (type === "resetScenarioPool") {
+    resetCurrentGame({ resetPool: true });
+    broadcast("此大事件事件池已重置，局數回到第 1 局。");
+    return;
+  }
+  if (type === "openNextGame") {
+    if (!state.settledRounds[MAX_ROUNDS]) throw new Error("第 5 輪結算完成後才能開啟下一局。");
+    if (currentGameNumber() >= MAX_GAMES_PER_SCENARIO) throw new Error("此大事件已完成 4 局，請重置事件池或選擇其他大事件。");
+    resetCurrentGame({ nextGame: true });
+    broadcast(`已開啟第 ${currentGameNumber()} / ${MAX_GAMES_PER_SCENARIO} 局。事件池紀錄已保留。`);
     return;
   }
   if (type === "setNames") {
@@ -678,6 +749,7 @@ function handleAction(payload) {
   if (type === "openEventDraw") {
     if (!state.round) throw new Error("請先開始第 1 輪。");
     if (state.currentEvent) throw new Error("本輪已抽過小事件。");
+    if (!unusedEventsForRound(state.round).length) throw new Error("此大事件的小事件已全部使用完，請重置事件池或選擇其他大事件。");
     state.eventDrawOpen = true;
     state.stage = `第 ${state.round} 輪：等待玩家抽小事件`;
     broadcast("玩家可以搶抽本輪小事件。");
@@ -687,7 +759,10 @@ function handleAction(payload) {
     const player = assertPlayer(payload.playerId);
     if (!state.eventDrawOpen) throw new Error("主持人尚未開放抽小事件。");
     if (state.currentEvent) throw new Error("本輪小事件已被抽走。");
-    state.currentEvent = randomItem(roundEvents[state.round]);
+    const availableEvents = unusedEventsForRound(state.round);
+    if (!availableEvents.length) throw new Error("此大事件的小事件已全部使用完，請重置事件池或選擇其他大事件。");
+    state.currentEvent = randomItem(availableEvents);
+    currentScenarioProgress().usedEventsByRound[String(state.round)].push(state.currentEvent.id);
     state.eventDrawOpen = false;
     state.eventDrawnBy = player.id;
     state.stage = `第 ${state.round} 輪：新聞發布`;
@@ -752,7 +827,9 @@ function handleAction(payload) {
     });
     state.settledRounds[state.round] = true;
     state.pointsVisible = true;
-    state.records.push({ round: state.round, event: state.currentEvent, playerResults });
+    const pointsSnapshot = { ...state.currentEvent.points };
+    state.records.push({ game: currentGameNumber(), round: state.round, eventId: state.currentEvent.id, event: state.currentEvent, points: pointsSnapshot, playerResults });
+    state.trendData.push({ game: currentGameNumber(), round: state.round, eventId: state.currentEvent.id, points: pointsSnapshot });
     state.stage = `第 ${state.round} 輪：結算完成`;
     broadcast(`第 ${state.round} 輪已結算。`);
     return;

@@ -336,6 +336,12 @@
       <div id="myCards"></div>
     </section>
 
+    <section class="section">
+      <h2>我的命運卡操作</h2>
+      <div id="fateActions"></div>
+      <div id="fateResults"></div>
+    </section>
+
     <section class="section" id="leaderboardSection" style="display: none;">
       <h2>最終排行榜</h2>
       <div id="leaderboard"></div>
@@ -383,6 +389,7 @@
       renderTimer();
       renderEvent();
       renderCards();
+      renderFateActions();
       renderTrendChart("trendChart");
       renderLeaderboard();
     }
@@ -494,6 +501,57 @@
       `).join("") : "";
     }
 
+    function playerOptions(excludeSelf = true) {
+      return data.players.filter((player) => !excludeSelf || player.id !== playerId).map((player) => `<option value="${player.id}">${escapeHtml(player.name)}</option>`).join("");
+    }
+
+    function productOptions({ ownedOnly = false, excludeKey = "" } = {}) {
+      return data.products.filter((product) => product.key !== excludeKey).filter((product) => !ownedOnly || (data.me && data.me.holdings[product.key] > 0)).map((product) => `<option value="${product.key}">${escapeHtml(product.name)}</option>`).join("");
+    }
+
+    function renderFateActions() {
+      const fate = data.myInteractiveFate;
+      const secretLogs = (data.mySecretLogs || []).map((log) => `<div class="market-note">${escapeHtml(log.text)}</div>`).join("");
+      const publicLogs = (data.publicFateLogs || []).map((log) => `<div class="market-note">${escapeHtml(log.detail)}</div>`).join("");
+      $("fateResults").innerHTML = secretLogs + publicLogs;
+      if (!fate) {
+        $("fateActions").innerHTML = `<p class="muted">本輪沒有可操作的互動型命運卡。</p>`;
+        return;
+      }
+      if (fate.used || !fate.canUse) {
+        $("fateActions").innerHTML = `<div class="my-card fate"><strong>${escapeHtml(fate.title)}</strong><br>${escapeHtml(fate.text)}<br><span>${fate.used ? "已使用" : "本輪已結算，不能再使用"}</span><br><span>${escapeHtml(fate.actionResult || "")}</span></div>`;
+        return;
+      }
+      let controls = "";
+      if (fate.actionKey === "exchange") {
+        controls = `<label>目標玩家<select id="fateTarget">${playerOptions(true)}</select></label><button onclick="useFateAction('exchange')">發起情報交換</button>`;
+      } else if (fate.actionKey === "peek") {
+        controls = `<label>目標玩家<select id="fateTarget">${playerOptions(true)}</select></label><label>商品<select id="fateProduct">${productOptions()}</select></label><button onclick="useFateAction('peek')">偷窺持倉</button>`;
+      } else if (fate.actionKey === "hedge") {
+        controls = `<label>避險商品<select id="fateProduct">${productOptions()}</select></label><button onclick="useFateAction('hedge')">設定避險</button>`;
+      } else if (fate.actionKey === "reveal") {
+        controls = `<label>目標玩家<select id="fateTarget">${playerOptions(true)}</select></label><button onclick="useFateAction('reveal')">強制公開</button>`;
+      } else if (fate.actionKey === "reverse") {
+        const fromOptions = productOptions({ ownedOnly: true });
+        const firstOwned = data.products.find((product) => data.me && data.me.holdings[product.key] > 0);
+        controls = fromOptions ? `<label>轉出商品<select id="fateFrom" onchange="syncReverseOptions()">${fromOptions}</select></label><label>轉入商品<select id="fateTo">${productOptions({ excludeKey: firstOwned ? firstOwned.key : "" })}</select></label><button onclick="useFateAction('reverse')">執行反向操作</button>` : `<p class="muted">你目前沒有可轉出的商品。</p>`;
+      }
+      $("fateActions").innerHTML = `<div class="my-card fate"><strong>${escapeHtml(fate.title)}</strong><br>${escapeHtml(fate.text)}<br>${controls}</div>`;
+    }
+
+    function syncReverseOptions() {
+      const from = $("fateFrom") ? $("fateFrom").value : "";
+      if ($("fateTo")) $("fateTo").innerHTML = productOptions({ excludeKey: from });
+    }
+
+    function useFateAction(kind) {
+      if (kind === "exchange") action("requestExchange", { targetPlayerId: Number($("fateTarget").value) });
+      if (kind === "peek") action("usePeekHolding", { targetPlayerId: Number($("fateTarget").value), productKey: $("fateProduct").value });
+      if (kind === "hedge") action("useHedge", { productKey: $("fateProduct").value });
+      if (kind === "reveal") action("useForceReveal", { targetPlayerId: Number($("fateTarget").value) });
+      if (kind === "reverse") action("useReverseOperation", { fromProductKey: $("fateFrom").value, toProductKey: $("fateTo").value });
+    }
+
     function renderLeaderboard() {
       const showLeaderboard = data.stage === "遊戲結束";
       $("leaderboardSection").style.display = showLeaderboard ? "block" : "none";
@@ -506,7 +564,6 @@
         <div class="stat"><span>#${index + 1} ${escapeHtml(player.name)}</span><strong>${player.totalAssets} 點</strong></div>
       `).join("");
     }
-
     function trendColor(index) {
       return ["#2ee9ff", "#ff4bd8", "#46ff9d", "#ffca3a", "#a78bfa", "#ff7a59", "#7dd3fc", "#f472b6"][index % 8];
     }
@@ -530,7 +587,7 @@
       const chartHeight = height - top - bottom;
       const minY = -3;
       const maxY = 3;
-      const xForRound = (round) => left + ((round - 1) / Math.max(1, (data.maxRounds || 5) - 1)) * chartWidth;
+      const xForRound = (round) => left + (round / Math.max(1, data.maxRounds || 5)) * chartWidth;
       const yForPoint = (point) => top + ((maxY - point) / (maxY - minY)) * chartHeight;
       const rows = [];
 
@@ -541,7 +598,7 @@
         rows.push('<text x="' + (left - 12) + '" y="' + (y + 5) + '" fill="' + (isZero ? '#f8fbff' : '#aeb8d8') + '" font-size="12" text-anchor="end">' + signed(point) + '</text>');
       }
 
-      for (let round = 1; round <= (data.maxRounds || 5); round += 1) {
+      for (let round = 0; round <= (data.maxRounds || 5); round += 1) {
         const x = xForRound(round);
         rows.push('<line x1="' + x + '" y1="' + top + '" x2="' + x + '" y2="' + (top + chartHeight) + '" stroke="rgba(46,233,255,.12)"/>');
         rows.push('<text x="' + x + '" y="' + (height - 20) + '" fill="#d8fbff" font-size="12" text-anchor="middle">第 ' + round + ' 輪</text>');

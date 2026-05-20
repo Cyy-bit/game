@@ -436,6 +436,11 @@
         </section>
 
         <section class="section">
+          <h2 class="section-title">命運卡使用紀錄</h2>
+          <div id="fateLogs"></div>
+        </section>
+
+        <section class="section">
           <h2 class="section-title">本局商品走勢圖</h2>
           <div id="trendChart" class="trend-chart"></div>
         </section>
@@ -514,6 +519,7 @@
       renderAdjustments();
       renderLeaderboard();
       renderPlayerCards();
+      renderFateLogs();
       renderTrendChart("trendChart");
       renderRecords();
     }
@@ -633,9 +639,30 @@
       $("playerCards").innerHTML = data.playerCards.map((entry) => `
         <div class="record">
           <strong>${escapeHtml(entry.playerName)}</strong><br>
-          ${entry.cards.length ? entry.cards.map((card) => `${escapeHtml(card.title)}：${escapeHtml(card.text)}`).join("<br>") : "尚未抽卡"}
+          ${entry.cards.length ? entry.cards.map((card) => `${escapeHtml(card.title)}：${escapeHtml(card.text)}${card.used ? "（已使用）" : ""}`).join("<br>") : "尚未抽卡"}
         </div>
       `).join("");
+    }
+
+    function renderFateLogs() {
+      const pending = (data.exchangeRequests || []).filter((request) => request.status === "pending");
+      const pendingHtml = pending.map((request) => `
+        <div class="record">
+          <strong>待確認：情報交換</strong><br>
+          ${escapeHtml(request.fromName)} 對 ${escapeHtml(request.targetName)} 發起情報交換，請進行小遊戲並確認勝負。<br>
+          <button onclick="action('resolveExchange', { requestId: '${request.id}', winnerId: ${request.fromId} })">${escapeHtml(request.fromName)} 獲勝</button>
+          <button onclick="action('resolveExchange', { requestId: '${request.id}', winnerId: ${request.targetId} })">${escapeHtml(request.targetName)} 獲勝</button>
+          <button onclick="action('resolveExchange', { requestId: '${request.id}', winnerId: null })">取消</button>
+        </div>
+      `).join("");
+      const logsHtml = (data.fateLogs || []).slice().reverse().map((log) => `
+        <div class="record">
+          <strong>第 ${log.game || data.currentGame || 1} 局／第 ${log.round || "-"} 輪：${escapeHtml(log.cardTitle || "命運卡")}</strong><br>
+          ${escapeHtml(log.detail || "")}<br>
+          <span class="muted">狀態：${escapeHtml(log.status || "已完成")}${log.public ? "／公開結果" : ""}</span>
+        </div>
+      `).join("");
+      $("fateLogs").innerHTML = pendingHtml + logsHtml || `<div class="muted">尚無命運卡使用紀錄。</div>`;
     }
 
     function renderRecords() {
@@ -647,11 +674,15 @@
         const recordPoints = record.points || record.event.points;
         const eventLabel = record.eventId || record.event.id || "未記錄";
         const points = data.products.map((product) => `${product.name} ${signed(recordPoints[product.key])}`).join("、");
-        const results = record.playerResults.map((result) => `${escapeHtml(result.playerName)}：<span class="${numClass(result.profit)}">${signed(result.profit)}</span>，總資產 ${result.assetsAfter}`).join("<br>");
-        return `<div class="record"><strong>第 ${record.game || data.currentGame || 1} 局／第 ${record.round} 輪／事件 ${escapeHtml(eventLabel)}</strong><br>商品點數：${points}<br>${results}</div>`;
+        const adjustments = (record.adjustments || []).map((item) => `${escapeHtml(item.playerName)}：${escapeHtml(item.text || "未調整")}`).join("<br>") || "未調整";
+        const results = record.playerResults.map((result) => {
+          const hedge = (result.hedgeNotes || []).map((note) => `<br><span class="muted">${escapeHtml(note)}</span>`).join("");
+          return `${escapeHtml(result.playerName)}：<span class="${numClass(result.profit)}">${signed(result.profit)}</span>，總資產 ${result.assetsAfter}${hedge}`;
+        }).join("<br>");
+        const fateLogs = (record.fateLogs || []).map((log) => `${escapeHtml(log.cardTitle || "命運卡")}：${escapeHtml(log.detail || "")}`).join("<br>") || "無";
+        return `<div class="record"><strong>第 ${record.game || data.currentGame || 1} 局／第 ${record.round} 輪／事件 ${escapeHtml(eventLabel)}</strong><br>商品點數：${points}<br><br><strong>本輪投資調整：</strong><br>${adjustments}<br><br><strong>命運卡使用紀錄：</strong><br>${fateLogs}<br><br>${results}</div>`;
       }).join("");
     }
-
     function trendColor(index) {
       return ["#2ee9ff", "#ff4bd8", "#46ff9d", "#ffca3a", "#a78bfa", "#ff7a59", "#7dd3fc", "#f472b6"][index % 8];
     }
@@ -675,7 +706,7 @@
       const chartHeight = height - top - bottom;
       const minY = -3;
       const maxY = 3;
-      const xForRound = (round) => left + ((round - 1) / Math.max(1, (data.maxRounds || 5) - 1)) * chartWidth;
+      const xForRound = (round) => left + (round / Math.max(1, data.maxRounds || 5)) * chartWidth;
       const yForPoint = (point) => top + ((maxY - point) / (maxY - minY)) * chartHeight;
       const rows = [];
 
@@ -686,7 +717,7 @@
         rows.push('<text x="' + (left - 14) + '" y="' + (y + 5) + '" fill="' + (isZero ? '#f8fbff' : '#aeb8d8') + '" font-size="13" text-anchor="end">' + signed(point) + '</text>');
       }
 
-      for (let round = 1; round <= (data.maxRounds || 5); round += 1) {
+      for (let round = 0; round <= (data.maxRounds || 5); round += 1) {
         const x = xForRound(round);
         rows.push('<line x1="' + x + '" y1="' + top + '" x2="' + x + '" y2="' + (top + chartHeight) + '" stroke="rgba(46,233,255,.12)"/>');
         rows.push('<text x="' + x + '" y="' + (height - 24) + '" fill="#d8fbff" font-size="13" text-anchor="middle">第 ' + round + ' 輪</text>');

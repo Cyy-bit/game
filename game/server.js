@@ -346,14 +346,40 @@ const eventExplanations = {
 };
 
 
-const interactiveFates = [
-  { title: "情報交換", text: "指定一位玩家玩小遊戲，贏的人可以知道對方是否抽到資訊卡。" },
-  { title: "偷窺持倉", text: "可以秘密查看一位玩家其中一項商品持有數量。" },
-  { title: "避險機會", text: "本輪你可以指定一項商品，若該商品下跌，最多只扣 3 點。請主持人手動記錄。" },
-  { title: "強制公開", text: "指定一位玩家公開自己持有最多的商品名稱，不公開數量。" },
-  { title: "反向操作", text: "本輪結算前，你可以把其中一項商品 1 單位轉換成另一項商品 1 單位。請主持人手動處理。" }
+const pointCashCards = [
+  { amount: 5, weight: 40 },
+  { amount: -5, weight: 40 },
+  { amount: 3, weight: 12 },
+  { amount: -3, weight: 12 },
+  { amount: 8, weight: 4 },
+  { amount: -8, weight: 4 }
 ];
 
+const normalMoneyFates = [
+  { title: "中樂透", amount: 2 },
+  { title: "感冒掛號費", amount: -2 },
+  { title: "錢包不見", amount: -5 },
+  { title: "中發票", amount: 5 },
+  { title: "車子維修", amount: -10 },
+  { title: "存款利息", amount: 10 }
+];
+
+const bigMoneyFates = [
+  { title: "繼承遺產", amount: 50 },
+  { title: "年終獎金", amount: 30 },
+  { title: "老闆加薪", amount: 20 },
+  { title: "紅包", amount: 20 },
+  { title: "信用卡卡費", amount: -30 },
+  { title: "被詐騙", amount: -30 }
+];
+
+const interactiveFates = [
+  { actionKey: "exchange", title: "情報交換", text: "指定一位玩家玩小遊戲，贏的人可以知道對方抽到的卡片是什麼。" },
+  { actionKey: "peek", title: "偷窺持倉", text: "可以秘密查看一位玩家其中一項商品持有數量。" },
+  { actionKey: "hedge", title: "避險機會", text: "本輪你可以指定一項商品，若該商品下跌，最多只扣 3 點。" },
+  { actionKey: "reveal", title: "強制公開", text: "指定一位玩家公開自己持有最多的商品名稱，不公開數量。" },
+  { actionKey: "reverse", title: "反向操作", text: "本輪結算前，你可以把其中一項商品 1 單位轉換成另一項商品 1 單位。" }
+];
 let state = makeState();
 let version = 0;
 const sseClients = new Set();
@@ -379,7 +405,10 @@ function makePlayers(names = []) {
     holdings: Object.fromEntries(products.map((product) => [product.key, 0])),
     lastProfit: 0,
     cards: [],
-    history: []
+    history: [],
+    secrets: [],
+    hedgeProduct: null,
+    usedFateCardId: null
   }));
 }
 
@@ -398,6 +427,9 @@ function makeState(options = {}) {
     settledRounds: {},
     records: [],
     trendData: [],
+    roundAdjustments: {},
+    fateLogs: [],
+    exchangeRequests: [],
     discussionEndsAt: null,
     scenarioProgress: options.scenarioProgress || makeScenarioProgress(),
     message: "連線版已準備好。",
@@ -449,6 +481,28 @@ function signed(value) {
   return value > 0 ? `+${value}` : `${value}`;
 }
 
+function cashText(amount) {
+  return amount >= 0 ? "獲得 " + amount + " 點" : "失去 " + Math.abs(amount) + " 點";
+}
+
+function zeroPoints() {
+  return Object.fromEntries(products.map((product) => [product.key, 0]));
+}
+
+function trendDataWithRoundZero() {
+  return [{ game: currentGameNumber(), round: 0, eventId: "0", points: zeroPoints() }, ...state.trendData];
+}
+
+function weightedRandom(items) {
+  const total = items.reduce((sum, item) => sum + item.weight, 0);
+  let ticket = Math.random() * total;
+  for (const item of items) {
+    ticket -= item.weight;
+    if (ticket <= 0) return item;
+  }
+  return items[items.length - 1];
+}
+
 function playerName(id) {
   return state.players.find((player) => player.id === id)?.name || `玩家 ${id}`;
 }
@@ -476,7 +530,7 @@ function baseState() {
     currentGame: currentGameNumber(),
     maxGames: MAX_GAMES_PER_SCENARIO,
     usedEventsByRound: currentScenarioProgress().usedEventsByRound,
-    trendData: state.trendData,
+    trendData: trendDataWithRoundZero(),
     products,
     round: state.round,
     stage: state.stage,
@@ -489,6 +543,7 @@ function baseState() {
     cardDrawOpen: state.cardDrawOpen,
     message: state.message,
     records: state.records,
+    fateLogs: state.fateLogs,
     players: state.players.map((player) => ({
       id: player.id,
       name: player.name,
@@ -505,6 +560,7 @@ function hostState() {
   return {
     ...baseState(),
     currentEvent: publicEvent(state.currentEvent, true),
+    exchangeRequests: state.exchangeRequests,
     cardDeck: state.cardDeck.map((card) => ({
       id: card.id,
       type: card.type,
@@ -519,13 +575,42 @@ function hostState() {
     }))
   };
 }
-
 function playerState(playerId) {
   const player = state.players.find((item) => item.id === playerId);
   const existingClaim = state.cardDeck.find((card) => card.claimedBy === playerId);
+  const settledCurrentRound = Boolean(state.round && state.settledRounds[state.round]);
+  const base = baseState();
+  const myInteractiveFate = player ? player.cards.find((card) => card.type === "fate" && card.isInteractive && card.round === state.round) : null;
   return {
-    ...baseState(),
-    currentEvent: publicEvent(state.currentEvent, state.pointsVisible),
+    ...base,
+    records: base.records.map((record) => ({
+      ...record,
+      fateLogs: (record.fateLogs || []).filter((log) => log.public || log.playerId === playerId),
+      playerResults: (record.playerResults || []).map((result) => ({
+        ...result,
+        hedgeNotes: result.playerId === playerId ? result.hedgeNotes : []
+      }))
+    })),
+    players: state.players.map((item) => ({
+      id: item.id,
+      name: item.name,
+      totalAssets: state.stage === "遊戲結束" ? totalAssets(item) : null
+    })),
+    currentEvent: publicEvent(state.currentEvent, settledCurrentRound),
+    pointsVisible: settledCurrentRound,
+    fateLogs: state.fateLogs.filter((log) => log.public),
+    publicFateLogs: state.fateLogs.filter((log) => log.public),
+    myFateLogs: state.fateLogs.filter((log) => log.playerId === playerId || log.actorId === playerId || log.targetId === playerId),
+    mySecretLogs: player ? player.secrets : [],
+    myInteractiveFate: myInteractiveFate ? {
+      id: myInteractiveFate.cardId,
+      title: myInteractiveFate.title,
+      text: myInteractiveFate.text,
+      actionKey: myInteractiveFate.actionKey,
+      used: Boolean(myInteractiveFate.used),
+      actionResult: myInteractiveFate.actionResult || "",
+      canUse: !myInteractiveFate.used && !settledCurrentRound
+    } : null,
     me: player ? {
       id: player.id,
       name: player.name,
@@ -534,7 +619,8 @@ function playerState(playerId) {
       lastProfit: player.lastProfit,
       totalAssets: totalAssets(player),
       cards: player.cards,
-      history: player.history
+      history: player.history,
+      hedgeProduct: player.hedgeProduct
     } : null,
     hasClaimedCard: Boolean(existingClaim),
     cardDeck: state.cardDeck.map((card) => ({
@@ -547,7 +633,6 @@ function playerState(playerId) {
     }))
   };
 }
-
 function broadcast(message = state.message) {
   state.message = message;
   version += 1;
@@ -608,47 +693,127 @@ function createInfoCard() {
 
 function createProductCard(player) {
   const product = randomItem(products);
-  const amount = Math.floor(Math.random() * 3) + 1;
+  const amount = Math.floor(Math.random() * 2) + 1;
   player.holdings[product.key] += amount;
   return {
     type: "product",
     title: "商品卡",
-    text: `你獲得「${product.name}」${amount} 單位。`,
-    summary: `獲得 ${product.name} ${amount} 單位。`,
+    text: "你獲得「" + product.name + "」" + amount + " 單位。",
+    summary: "獲得 " + product.name + " " + amount + " 單位。",
     note: "系統已自動增加商品單位"
   };
 }
-
-function createPointCard() {
-  const product = randomItem(products);
-  const point = state.currentEvent.points[product.key];
+function createPointCard(player) {
+  const picked = weightedRandom(pointCashCards);
+  player.cash += picked.amount;
   return {
     type: "point",
     title: "點數卡",
-    text: `你得知：「${product.name}」本輪為 ${signed(point)} 點。`,
-    summary: `得知 ${product.name} 本輪點數。`,
-    note: "請主持人私下告知該玩家"
+    text: cashText(picked.amount),
+    summary: "點數卡：" + cashText(picked.amount) + "。",
+    note: "系統已自動加減現金",
+    amount: picked.amount
   };
 }
 
-function createFateCard() {
+function pickMoneyFate() {
+  if (state.round < 3) return randomItem(normalMoneyFates);
+  const tier = weightedRandom([{ tier: "normal", weight: 80 }, { tier: "big", weight: 20 }]);
+  return randomItem(tier.tier === "big" ? bigMoneyFates : normalMoneyFates);
+}
+function createFateCard(player) {
+  const fateKind = weightedRandom([{ kind: "money", weight: 60 }, { kind: "interactive", weight: 40 }]);
+  if (fateKind.kind === "money") {
+    const fate = pickMoneyFate();
+    player.cash += fate.amount;
+    return {
+      type: "fate",
+      title: "命運卡：" + fate.title,
+      text: fate.title + "：" + cashText(fate.amount),
+      summary: fate.title + "：" + cashText(fate.amount) + "。",
+      note: "金錢型命運卡，系統已自動加減現金",
+      isInteractive: false,
+      amount: fate.amount
+    };
+  }
+
   const fate = randomItem(interactiveFates);
   return {
     type: "fate",
-    title: `命運卡：${fate.title}`,
+    title: "命運卡：" + fate.title,
     text: fate.text,
-    summary: `互動效果：${fate.title}。`,
-    note: "互動型命運卡，請主持人手動處理"
+    summary: "互動效果：" + fate.title + "。",
+    note: "互動型命運卡，請在玩家頁操作",
+    isInteractive: true,
+    actionKey: fate.actionKey,
+    used: false,
+    actionResult: ""
   };
 }
-
 function createClaimedCard(card, player) {
-  if (card.type === "info") return createInfoCard();
-  if (card.type === "product") return createProductCard(player);
-  if (card.type === "point") return createPointCard();
-  return createFateCard();
+  let content;
+  if (card.type === "info") content = createInfoCard();
+  else if (card.type === "product") content = createProductCard(player);
+  else if (card.type === "point") content = createPointCard(player);
+  else content = createFateCard(player);
+  content.cardId = card.id;
+  content.round = state.round;
+  return content;
 }
 
+function cardTypeName(card) {
+  const names = { info: "資訊卡", product: "商品卡", fate: "命運卡", point: "點數卡" };
+  return names[card?.type] || "未知卡牌";
+}
+
+function cardRevealText(card) {
+  if (!card) return "尚未抽卡";
+  return cardTypeName(card) + "：" + card.title + "，" + card.text;
+}
+
+function findCurrentInteractiveCard(player, actionKey) {
+  return player.cards.find((card) => card.type === "fate" && card.isInteractive && card.actionKey === actionKey && card.round === state.round);
+}
+
+function assertFateUsable(player, actionKey) {
+  if (!state.round) throw new Error("目前不在回合中。");
+  if (state.settledRounds[state.round]) throw new Error("本輪已結算，不能再使用命運卡。");
+  const card = findCurrentInteractiveCard(player, actionKey);
+  if (!card) throw new Error("你本輪沒有這張可操作的命運卡。");
+  if (card.used) throw new Error("這張命運卡本輪已使用過。");
+  return card;
+}
+
+function markFateUsed(player, card, result) {
+  card.used = true;
+  card.actionResult = result;
+  player.usedFateCardId = card.cardId;
+}
+
+function addFateLog(entry) {
+  state.fateLogs.push({
+    id: "fate-" + Date.now() + "-" + Math.random().toString(16).slice(2),
+    game: currentGameNumber(),
+    round: state.round,
+    status: "已完成",
+    public: false,
+    ...entry
+  });
+}
+
+function currentRoundFateLogs() {
+  return state.fateLogs.filter((log) => log.game === currentGameNumber() && log.round === state.round);
+}
+
+function adjustmentText(proposed) {
+  const parts = [];
+  for (const product of products) {
+    const value = proposed[product.key];
+    if (value > 0) parts.push("買入 " + product.name + " " + value + " 單位");
+    if (value < 0) parts.push("賣出 " + product.name + " " + Math.abs(value) + " 單位");
+  }
+  return parts.join("、") || "未調整";
+}
 function applyAdjustments(adjustments) {
   const normalized = [];
   for (const item of adjustments || []) {
@@ -658,23 +823,26 @@ function applyAdjustments(adjustments) {
     if (Object.values(proposed).some((value) => !Number.isFinite(value))) throw new Error("投資調整必須是整數。");
     const buyCost = products.reduce((sum, product) => sum + Math.max(0, proposed[product.key]) * UNIT_PRICE, 0);
     const sellGain = products.reduce((sum, product) => sum + Math.max(0, -proposed[product.key]) * UNIT_PRICE, 0);
-    if (player.cash < buyCost) throw new Error(`${player.name} 現金不足，不能買入。`);
+    if (player.cash < buyCost) throw new Error(player.name + " 現金不足，不能買入。");
     for (const product of products) {
-      if (player.holdings[product.key] + proposed[product.key] < 0) throw new Error(`${player.name} 的 ${product.name} 持有單位不足。`);
+      if (player.holdings[product.key] + proposed[product.key] < 0) throw new Error(player.name + " 的 " + product.name + " 持有單位不足。");
     }
-    normalized.push({ player, proposed, buyCost, sellGain });
+    normalized.push({ player, proposed, buyCost, sellGain, text: adjustmentText(proposed) });
   }
-  normalized.forEach(({ player, proposed, buyCost, sellGain }) => {
+  normalized.forEach(({ player, proposed, buyCost, sellGain, text }) => {
     products.forEach((product) => {
       player.holdings[product.key] += proposed[product.key];
     });
     player.cash = player.cash - buyCost + sellGain;
-    const phase = state.round ? `第 ${state.round} 輪` : "初始投資";
-    const detail = products.filter((product) => proposed[product.key] !== 0).map((product) => `${product.name} ${signed(proposed[product.key])}`).join("、") || "未調整";
-    player.history.push(`${phase}投資調整：${detail}。`);
+    const phase = state.round ? "第 " + state.round + " 輪" : "初始投資";
+    player.history.push(phase + "投資調整：" + text + "。");
+  });
+  const roundKey = String(state.round || 0);
+  state.roundAdjustments[roundKey] = state.players.map((player) => {
+    const item = normalized.find((entry) => entry.player.id === player.id);
+    return { playerId: player.id, playerName: player.name, text: item ? item.text : "未調整" };
   });
 }
-
 function handleAction(payload) {
   const type = payload.type;
   const hostActions = new Set([
@@ -690,6 +858,7 @@ function handleAction(payload) {
     "startDiscussionTimer",
     "applyAdjustments",
     "settleRound",
+    "resolveExchange",
     "nextRound",
     "endGame"
   ]);
@@ -742,6 +911,8 @@ function handleAction(payload) {
     state.players.forEach((player) => {
       player.lastProfit = 0;
       player.cards = [];
+      player.hedgeProduct = null;
+      player.usedFateCardId = null;
     });
     broadcast(`第 ${state.round} 輪已開始。`);
     return;
@@ -801,6 +972,108 @@ function handleAction(payload) {
     broadcast(`${player.name} 抽走了一張卡。`);
     return;
   }
+  if (type === "requestExchange") {
+    const player = assertPlayer(payload.playerId);
+    const target = assertPlayer(payload.targetPlayerId);
+    if (player.id === target.id) throw new Error("不能指定自己進行情報交換。");
+    const card = assertFateUsable(player, "exchange");
+    const request = {
+      id: "exchange-" + Date.now() + "-" + Math.random().toString(16).slice(2),
+      game: currentGameNumber(),
+      round: state.round,
+      fromId: player.id,
+      fromName: player.name,
+      targetId: target.id,
+      targetName: target.name,
+      status: "pending",
+      result: ""
+    };
+    markFateUsed(player, card, "已對 " + target.name + " 發起情報交換，等待主持人確認。");
+    state.exchangeRequests.push(request);
+    addFateLog({ playerId: player.id, playerName: player.name, actorId: player.id, targetId: target.id, cardTitle: "情報交換", detail: player.name + " 對 " + target.name + " 發起情報交換，等待主持人確認。", status: "待確認" });
+    broadcast(player.name + " 發起情報交換，請主持人確認勝負。");
+    return;
+  }
+  if (type === "resolveExchange") {
+    const request = state.exchangeRequests.find((item) => item.id === payload.requestId);
+    if (!request) throw new Error("找不到情報交換紀錄。");
+    if (request.status !== "pending") throw new Error("這筆情報交換已處理過。");
+    if (!payload.winnerId) {
+      request.status = "cancelled";
+      request.result = "主持人取消。";
+      addFateLog({ cardTitle: "情報交換", detail: request.fromName + " 對 " + request.targetName + " 的情報交換已取消。", status: "已取消" });
+      broadcast("情報交換已取消。");
+      return;
+    }
+    const winner = assertPlayer(payload.winnerId);
+    const loserId = winner.id === request.fromId ? request.targetId : request.fromId;
+    const loser = assertPlayer(loserId);
+    const loserCard = loser.cards[0] || null;
+    const secret = "情報交換結果：你查看了 " + loser.name + " 本輪抽到的卡牌：" + cardRevealText(loserCard) + "。";
+    winner.secrets.push({ game: currentGameNumber(), round: state.round, text: secret });
+    request.status = "resolved";
+    request.winnerId = winner.id;
+    request.winnerName = winner.name;
+    request.result = secret;
+    addFateLog({ playerId: winner.id, playerName: winner.name, actorId: request.fromId, targetId: request.targetId, cardTitle: "情報交換", detail: winner.name + " 獲勝並查看了 " + loser.name + " 的卡牌。", status: "已完成" });
+    broadcast("情報交換已確認：" + winner.name + " 獲勝。");
+    return;
+  }
+  if (type === "usePeekHolding") {
+    const player = assertPlayer(payload.playerId);
+    const target = assertPlayer(payload.targetPlayerId);
+    const product = products.find((item) => item.key === payload.productKey);
+    if (!product) throw new Error("找不到商品。");
+    const card = assertFateUsable(player, "peek");
+    const text = "你查看了 " + target.name + " 的「" + product.name + "」持有量：" + target.holdings[product.key] + " 單位。";
+    player.secrets.push({ game: currentGameNumber(), round: state.round, text });
+    markFateUsed(player, card, text);
+    addFateLog({ playerId: player.id, playerName: player.name, actorId: player.id, targetId: target.id, cardTitle: "偷窺持倉", detail: player.name + " 使用偷窺持倉查看了 " + target.name + " 的 " + product.name + " 持有量。", status: "已完成" });
+    broadcast(player.name + " 使用了偷窺持倉。");
+    return;
+  }
+  if (type === "useHedge") {
+    const player = assertPlayer(payload.playerId);
+    const product = products.find((item) => item.key === payload.productKey);
+    if (!product) throw new Error("找不到商品。");
+    const card = assertFateUsable(player, "hedge");
+    player.hedgeProduct = product.key;
+    const text = "你已設定本輪避險商品：" + product.name + "。";
+    player.secrets.push({ game: currentGameNumber(), round: state.round, text });
+    markFateUsed(player, card, text);
+    addFateLog({ playerId: player.id, playerName: player.name, actorId: player.id, cardTitle: "避險機會", detail: player.name + " 本輪對 " + product.name + " 使用避險。", status: "已完成" });
+    broadcast(player.name + " 已設定避險商品。");
+    return;
+  }
+  if (type === "useForceReveal") {
+    const player = assertPlayer(payload.playerId);
+    const target = assertPlayer(payload.targetPlayerId);
+    const card = assertFateUsable(player, "reveal");
+    const max = Math.max(...products.map((product) => target.holdings[product.key]));
+    const names = max <= 0 ? [] : products.filter((product) => target.holdings[product.key] === max).map((product) => product.name);
+    const text = names.length ? target.name + " 目前持有最多的商品是：" + names.join("、") + "。" : target.name + " 目前沒有持有任何商品。";
+    markFateUsed(player, card, text);
+    addFateLog({ playerId: player.id, playerName: player.name, actorId: player.id, targetId: target.id, cardTitle: "強制公開", detail: text, status: "已完成", public: true });
+    broadcast(text);
+    return;
+  }
+  if (type === "useReverseOperation") {
+    const player = assertPlayer(payload.playerId);
+    const fromProduct = products.find((item) => item.key === payload.fromProductKey);
+    const toProduct = products.find((item) => item.key === payload.toProductKey);
+    if (!fromProduct || !toProduct) throw new Error("找不到商品。");
+    if (fromProduct.key === toProduct.key) throw new Error("轉出與轉入商品不能相同。");
+    if (player.holdings[fromProduct.key] < 1) throw new Error("你的 " + fromProduct.name + " 持有不足，無法轉出。");
+    const card = assertFateUsable(player, "reverse");
+    player.holdings[fromProduct.key] -= 1;
+    player.holdings[toProduct.key] += 1;
+    const text = player.name + " 使用反向操作：" + fromProduct.name + " -1 單位，" + toProduct.name + " +1 單位。";
+    player.secrets.push({ game: currentGameNumber(), round: state.round, text });
+    markFateUsed(player, card, text);
+    addFateLog({ playerId: player.id, playerName: player.name, actorId: player.id, cardTitle: "反向操作", detail: text, status: "已完成" });
+    broadcast(player.name + " 使用了反向操作。");
+    return;
+  }
   if (type === "startDiscussionTimer") {
     if (!state.round) throw new Error("請先開始回合。");
     state.discussionEndsAt = Date.now() + 180000;
@@ -818,23 +1091,43 @@ function handleAction(payload) {
     if (!state.currentEvent) throw new Error("請先抽小事件。");
     if (state.settledRounds[state.round]) throw new Error(`第 ${state.round} 輪已結算過。`);
     const playerResults = state.players.map((player) => {
-      const profit = products.reduce((sum, product) => sum + player.holdings[product.key] * state.currentEvent.points[product.key], 0);
+      let profit = 0;
+      const hedgeNotes = [];
+      for (const product of products) {
+        const point = state.currentEvent.points[product.key];
+        const rawProfit = player.holdings[product.key] * point;
+        let adjustedProfit = rawProfit;
+        if (player.hedgeProduct === product.key && point < 0) {
+          adjustedProfit = Math.max(rawProfit, -3);
+          if (adjustedProfit !== rawProfit) hedgeNotes.push(player.name + " 本輪對 " + product.name + " 使用避險，原損益 " + signed(rawProfit) + "，避險後損益 " + signed(adjustedProfit) + "。");
+        }
+        profit += adjustedProfit;
+      }
       player.cash += profit;
       player.lastProfit = profit;
       const assetsAfter = totalAssets(player);
-      player.history.push(`第 ${state.round} 輪結算：本輪盈虧 ${signed(profit)} 點，回合後總資產 ${assetsAfter} 點。`);
-      return { playerName: player.name, profit, assetsAfter };
+      player.history.push("第 " + state.round + " 輪結算：本輪盈虧 " + signed(profit) + " 點，回合後總資產 " + assetsAfter + " 點。");
+      return { playerId: player.id, playerName: player.name, profit, assetsAfter, hedgeNotes };
     });
     state.settledRounds[state.round] = true;
     state.pointsVisible = true;
     const pointsSnapshot = { ...state.currentEvent.points };
-    state.records.push({ game: currentGameNumber(), round: state.round, eventId: state.currentEvent.id, event: state.currentEvent, points: pointsSnapshot, playerResults });
+    const adjustments = state.roundAdjustments[String(state.round)] || state.players.map((player) => ({ playerId: player.id, playerName: player.name, text: "未調整" }));
+    state.records.push({
+      game: currentGameNumber(),
+      round: state.round,
+      eventId: state.currentEvent.id,
+      event: state.currentEvent,
+      points: pointsSnapshot,
+      adjustments,
+      fateLogs: currentRoundFateLogs(),
+      playerResults
+    });
     state.trendData.push({ game: currentGameNumber(), round: state.round, eventId: state.currentEvent.id, points: pointsSnapshot });
     state.stage = `第 ${state.round} 輪：結算完成`;
     broadcast(`第 ${state.round} 輪已結算。`);
     return;
-  }
-  if (type === "nextRound") {
+  }  if (type === "nextRound") {
     if (!state.settledRounds[state.round]) throw new Error("本輪尚未結算。");
     if (state.round >= MAX_ROUNDS) {
       state.stage = "遊戲結束";
